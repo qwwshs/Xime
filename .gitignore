@@ -18,6 +18,7 @@ local.properties
 signing-key-base64.txt
 # APK签名密钥文件（不要提交到Git）
 *.keystore
+node_modules
 *.jks
 keystore-base64.txt
 PROGRESS.md
@@ -48,3 +49,5 @@ plugins/kaomoji/build
 
 # Plugin APKs (development only, not packaged in main app)
 app/src/main/assets/plugins/*.apk
+docs/.vitepress/dist
+docs/.vitepress/cache

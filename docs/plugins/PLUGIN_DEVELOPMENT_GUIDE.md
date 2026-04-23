@@ -52,13 +52,6 @@ Kime 目前只支持表情插件类型：
 - 插件只提供资源数据（EmojiItem）
 - 主应用负责展示和交互
 - 插件不需要 UI 代码，不依赖 Compose
-- 插件不需要 sharedUserId（除非需要配置共享）
-
-### sharedUserId
-
-表情插件不需要 `sharedUserId`。插件只提供数据，由主应用负责展示。
-
-如果未来需要配置共享（如 API Key），可以考虑添加 `sharedUserId`，但需要确保签名一致。
 
 ## 开发插件步骤
 
@@ -390,8 +383,8 @@ adb install my-plugin/build/outputs/apk/debug/my-plugin-xxx.apk
 
 ## 参考文档
 
-- [plugin-core 源码](../../plugin-core/) - 核心实现
-- [现有插件实现](../../plugins/) - 学习最佳实践
+- [plugin-core 源码](https://github.com/ximeiorg/Kime/tree/main/plugin-core) - 核心实现
+- [现有插件实现](https://github.com/ximeiorg/Kime/tree/main/plugins) - 学习最佳实践
 
 ## 版本兼容
 
