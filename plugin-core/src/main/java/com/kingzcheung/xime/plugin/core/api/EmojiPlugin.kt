@@ -8,6 +8,11 @@ data class CategoryLayoutConfig(
     val itemHeightDp: Int = 40
 )
 
+data class PluginIcon(
+    val text: String? = null,
+    val assetName: String? = null
+)
+
 interface EmojiPlugin : IPluginEntryClass {
     
     override fun onLoad(context: PluginContext)
@@ -19,6 +24,8 @@ interface EmojiPlugin : IPluginEntryClass {
     suspend fun getCategories(): List<String>
     
     suspend fun getCategoryLayoutConfig(category: String): CategoryLayoutConfig? = null
+    
+    fun getIcon(): PluginIcon? = null
     
     override fun hasSettings(): Boolean = false
     

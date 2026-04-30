@@ -41,10 +41,12 @@ import com.kingzcheung.xime.clipboard.ClipboardManager
 import com.kingzcheung.xime.plugin.ExtensionManager
 import com.kingzcheung.xime.plugin.core.api.CategoryLayoutConfig
 import com.kingzcheung.xime.plugin.core.api.EmojiItem
+import com.kingzcheung.xime.plugin.core.api.PluginIcon
 
 data class EmojiCategory(
     val name: String,
     val icon: String,
+    val pluginIcon: PluginIcon? = null,
     val emojis: List<String>,
     val isPlugin: Boolean = false,
     val pluginId: String? = null,
@@ -165,7 +167,7 @@ fun EmojiKeyboardLayout(
         modifier = modifier
             .fillMaxWidth()
             .background(backgroundColor)
-            .padding(top = 8.dp, bottom = 36.dp, start = 4.dp, end = 4.dp)
+            .padding(vertical = 8.dp, horizontal = 4.dp)
     ) {
         Box(
             modifier = Modifier
@@ -283,6 +285,7 @@ fun EmojiKeyboardLayout(
                 allCategories.forEachIndexed { index, category ->
                     EmojiCategoryTab(
                         icon = category.icon,
+                        pluginIcon = category.pluginIcon,
                         isSelected = index == selectedCategoryIndex,
                         onClick = { selectedCategoryIndex = index },
                         backgroundColor = backgroundColor,
@@ -307,12 +310,15 @@ fun EmojiKeyboardLayout(
 @Composable
 fun EmojiCategoryTab(
     icon: String,
+    pluginIcon: PluginIcon? = null,
     isSelected: Boolean,
     onClick: () -> Unit,
     backgroundColor: Color,
     textColor: Color,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    
     Box(
         modifier = modifier
             .height(30.dp)
@@ -324,11 +330,25 @@ fun EmojiCategoryTab(
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = icon,
-            fontSize = 16.sp,
-            textAlign = TextAlign.Center
-        )
+        if (pluginIcon?.assetName != null) {
+            AsyncImage(
+                model = ImageRequest.Builder(context)
+                    .data(pluginIcon.assetName)
+                    .crossfade(true)
+                    .build(),
+                contentDescription = icon,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(4.dp),
+                contentScale = ContentScale.Fit
+            )
+        } else {
+            Text(
+                text = pluginIcon?.text ?: icon,
+                fontSize = 16.sp,
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }
 

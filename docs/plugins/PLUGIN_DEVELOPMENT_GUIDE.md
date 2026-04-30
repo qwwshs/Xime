@@ -175,6 +175,7 @@ import android.content.Context
 import android.util.Log
 import com.kingzcheung.xime.plugin.core.api.EmojiItem
 import com.kingzcheung.xime.plugin.core.api.EmojiPlugin
+import com.kingzcheung.xime.plugin.core.api.PluginIcon
 import com.kingzcheung.xime.plugin.core.model.PluginContext
 import java.io.File
 import java.util.zip.ZipFile
@@ -192,8 +193,11 @@ class MyPlugin : EmojiPlugin {
         this.pluginContext = context
         Log.d(TAG, "Plugin loaded: ${context.pluginInfo.id}")
         
+        val filesDir = context.application.filesDir
+        
         // 加载表情数据
-        loadEmojis(context.pluginInfo.path)
+        loadEmojis(filesDir, context.pluginInfo.path)
+        
         Log.d(TAG, "Loaded ${emojiList.size} emojis")
     }
     
@@ -203,7 +207,7 @@ class MyPlugin : EmojiPlugin {
         Log.d(TAG, "Plugin unloaded")
     }
     
-    private fun loadEmojis(apkPath: String?) {
+    private fun loadEmojis(filesDir: File, apkPath: String?) {
         val emojis = mutableListOf<EmojiItem>()
         
         // 从 APK assets 加载表情
@@ -249,6 +253,10 @@ class MyPlugin : EmojiPlugin {
     override suspend fun getCategories(): List<String> {
         return emojiList.map { it.category }.distinct()
     }
+    
+    override fun getIcon(): PluginIcon? = PluginIcon(assetName = "icon.webp")
+    
+    // 或者使用文本图标：PluginIcon(text = "🐰")
     
     // hasSettings() 默认返回 false，不需要设置界面
     // openSettings() 默认空实现
@@ -302,6 +310,21 @@ data class EmojiItem(
     val category: String     // 分类名称
 )
 ```
+
+### PluginIcon
+
+```kotlin
+data class PluginIcon(
+    val text: String? = null,    // 表情符号文本（如 "🐰"）
+    val assetName: String? = null // assets 中的图标文件名（如 "icon.png"）
+)
+```
+
+插件图标两种方式：
+1. **文本图标**：`PluginIcon(text = "🐰")`
+2. **图片图标**：`PluginIcon(assetName = "icon.webp")` - 将图标放在 `assets/icon.webp`
+
+主应用自动从插件 APK 提取图片图标。
 
 ### PluginContext
 

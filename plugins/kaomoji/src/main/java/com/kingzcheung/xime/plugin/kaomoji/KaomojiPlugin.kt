@@ -6,6 +6,7 @@ import android.widget.Toast
 import com.kingzcheung.xime.plugin.core.api.CategoryLayoutConfig
 import com.kingzcheung.xime.plugin.core.api.EmojiItem
 import com.kingzcheung.xime.plugin.core.api.EmojiPlugin
+import com.kingzcheung.xime.plugin.core.api.PluginIcon
 import com.kingzcheung.xime.plugin.core.model.PluginContext
 
 class KaomojiPlugin : EmojiPlugin {
@@ -43,6 +44,10 @@ class KaomojiPlugin : EmojiPlugin {
     }
     
     override suspend fun getCategories(): List<String> = listOf("颜文字")
+
+    override fun getIcon(): PluginIcon {
+        return PluginIcon("థ౪థ")
+    }
     
     override suspend fun getCategoryLayoutConfig(category: String): CategoryLayoutConfig {
         return CategoryLayoutConfig(columns = 3, itemHeightDp = 30)

@@ -6,6 +6,7 @@ import android.widget.Toast
 import com.kingzcheung.xime.plugin.core.api.EmojiDisplayConfig
 import com.kingzcheung.xime.plugin.core.api.EmojiItem
 import com.kingzcheung.xime.plugin.core.api.EmojiPlugin
+import com.kingzcheung.xime.plugin.core.api.PluginIcon
 import com.kingzcheung.xime.plugin.core.model.PluginContext
 import java.io.File
 import java.util.Collections
@@ -46,7 +47,7 @@ class EmojiStickerPlugin : EmojiPlugin {
         }
         
         val files = emojisDir.listFiles()
-            ?.filter { it.extension == "jpg" || it.extension == "png" || it.extension == "gif" }
+            ?.filter { it.extension == "jpg" || it.extension == "png" || it.extension == "gif" || it.extension == "webp" }
             ?.toMutableList() ?: mutableListOf()
         
         Collections.sort(files) { f1, f2 ->
@@ -106,6 +107,8 @@ class EmojiStickerPlugin : EmojiPlugin {
             }
         }
     }
+    
+    override fun getIcon(): PluginIcon = PluginIcon(assetName = "icon.webp")
     
     override suspend fun getEmojis(category: String?, searchText: String?, topK: Int): List<EmojiItem> {
         val filtered = if (searchText.isNullOrEmpty()) emojiList

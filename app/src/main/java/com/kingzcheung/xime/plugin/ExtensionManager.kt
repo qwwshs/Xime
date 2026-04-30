@@ -3,6 +3,7 @@ package com.kingzcheung.xime.plugin
 import android.content.Context
 import android.util.Log
 import com.kingzcheung.xime.plugin.core.api.EmojiPlugin
+import com.kingzcheung.xime.plugin.core.api.PluginIcon
 import com.kingzcheung.xime.plugin.core.model.PluginInfo
 import com.kingzcheung.xime.plugin.core.runtime.PluginManager
 import com.kingzcheung.xime.settings.SettingsPreferences
@@ -17,6 +18,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
+import java.util.zip.ZipFile
 
 object ExtensionManager {
     private const val TAG = "ExtensionManager"
@@ -42,6 +45,75 @@ object ExtensionManager {
         }
     }
     
+    private fun extractPluginIcon(context: Context, pluginId: String, plugin: EmojiPlugin, pluginInfo: PluginInfo?): PluginIcon? {
+        val pluginIcon = try {
+            plugin.getIcon()
+        } catch (e: Exception) {
+            Log.w(TAG, "getIcon not supported by ${pluginInfo?.name}")
+            null
+        }
+        
+        Log.d(TAG, "extractPluginIcon: pluginId=$pluginId, pluginIcon=$pluginIcon, pluginInfo?.path=${pluginInfo?.path}")
+        
+        if (pluginIcon == null) return null
+        
+        if (pluginIcon.text != null) {
+            Log.d(TAG, "Using text icon: ${pluginIcon.text}")
+            return PluginIcon(text = pluginIcon.text)
+        }
+        
+        val assetName = pluginIcon.assetName
+        if (assetName == null) {
+            Log.d(TAG, "No assetName in pluginIcon")
+            return null
+        }
+        
+        Log.d(TAG, "Extracting icon asset: $assetName")
+        
+        val iconDir = File(context.filesDir, "plugin_icons")
+        if (!iconDir.exists()) iconDir.mkdirs()
+        
+        val iconFile = File(iconDir, "${pluginId}_$assetName")
+        
+        Log.d(TAG, "Icon file path: ${iconFile.absolutePath}, exists: ${iconFile.exists()}")
+        
+        if (!iconFile.exists()) {
+            val apkPath = pluginInfo?.path
+            Log.d(TAG, "apkPath: $apkPath")
+            if (apkPath != null) {
+                try {
+                    ZipFile(File(apkPath)).use { zip ->
+                        val entries = zip.entries().asSequence().filter { it.name.startsWith("assets/") }.map { it.name }.toList()
+                        Log.d(TAG, "Assets in APK: $entries")
+                        
+                        val entry = zip.entries().asSequence()
+                            .firstOrNull { it.name == "assets/$assetName" }
+                        Log.d(TAG, "Found entry: ${entry?.name}")
+                        if (entry != null) {
+                            zip.getInputStream(entry).use { input ->
+                                iconFile.outputStream().use { output ->
+                                    input.copyTo(output)
+                                }
+                            }
+                            Log.d(TAG, "Extracted icon for $pluginId to ${iconFile.absolutePath}")
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to extract icon for $pluginId", e)
+                }
+            }
+        }
+        
+        val result = if (iconFile.exists()) {
+            Log.d(TAG, "Icon file exists, returning path: ${iconFile.absolutePath}")
+            PluginIcon(assetName = iconFile.absolutePath)
+        } else {
+            Log.d(TAG, "Icon file does not exist, returning null")
+            null
+        }
+        return result
+    }
+    
     suspend fun loadEmojiDataFromPlugins(context: Context) {
         Log.d(TAG, "Preloading emoji data from plugins")
         val pluginCategories = mutableListOf<EmojiCategory>()
@@ -61,10 +133,12 @@ object ExtensionManager {
                             Log.w(TAG, "getCategoryLayoutConfig not supported by ${pluginInfo?.name}")
                             null
                         }
+                        val pluginIcon = extractPluginIcon(context, pluginId, plugin, pluginInfo)
                         pluginCategories.add(
                             EmojiCategory(
                                 name = pluginInfo?.name ?: "表情",
                                 icon = "🎭",
+                                pluginIcon = pluginIcon,
                                 emojis = emptyList(),
                                 isPlugin = true,
                                 pluginId = pluginId,
