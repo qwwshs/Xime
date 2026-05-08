@@ -763,7 +763,8 @@ if (state.showKeyboardResize) {
                             uiState.value = uiState.value.copy(
                                 candidates = emptyArray(),
                                 candidateComments = emptyArray(),
-                                associationCandidates = emptyArray()
+                                associationCandidates = emptyArray(),
+                                isShowingRecentClipboard = false
                             )
                         }
                         
@@ -778,7 +779,8 @@ if (state.showKeyboardResize) {
                         candidates = emptyArray(),
                         candidateComments = emptyArray(),
                         associationCandidates = emptyArray(),
-                        pendingEnglishText = ""
+                        pendingEnglishText = "",
+                        isShowingRecentClipboard = false
                     )
                     needsUIUpdate = true
                     Log.d(TAG, "Clear composition: cleared all")
