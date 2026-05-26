@@ -116,8 +116,8 @@ fun KeyboardView(
     val candidateTextColor = keyTextColor
     val dividerColor = if (isDarkTheme) DividerColorDark else DividerColor
     val state = uiStateProvider()
-    // 每次重新开始输入时（onStartInput 重建 candidates），重置导航状态到全键盘
-    LaunchedEffect(state.isShowingRecentClipboard, state.candidates.toList()) {
+    // 每次重新开始输入时（inputSessionId 变化），重置导航状态到全键盘
+    LaunchedEffect(state.inputSessionId) {
         showCandidatePage = false
         showClipboard = false
         showEmoji = false

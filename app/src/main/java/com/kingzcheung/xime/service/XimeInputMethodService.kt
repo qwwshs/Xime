@@ -667,6 +667,9 @@ if (state.showKeyboardResize) {
             }
         }
 
+        // 标记新一轮输入会话，用于 KeyboardView 重置导航状态
+        uiState.value = uiState.value.copy(inputSessionId = System.nanoTime())
+
         // 获取最近30秒的剪切板内容
         ensureClipboardManagerInitialized()
         try {

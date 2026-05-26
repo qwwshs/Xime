@@ -37,7 +37,8 @@ data class InputUIState(
     val isDeploying: Boolean = false,
     val deploymentMessage: String = "",
     val hasNextPage: Boolean = false,
-    val hasPrevPage: Boolean = false
+    val hasPrevPage: Boolean = false,
+    val inputSessionId: Long = 0
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -79,6 +80,7 @@ if (showBottomButtons != other.showBottomButtons) return false
         if (deploymentMessage != other.deploymentMessage) return false
         if (hasNextPage != other.hasNextPage) return false
         if (hasPrevPage != other.hasPrevPage) return false
+        if (inputSessionId != other.inputSessionId) return false
 
         return true
     }
