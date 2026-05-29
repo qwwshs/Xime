@@ -751,14 +751,24 @@ onVoiceModeChange = { enabled ->
         attribute?.let { updateEnterKeyText(it) }
     }
     
+    override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
+        super.onStartInputView(info, restarting)
+        // 作为 onStartInput 的补充，某些 ROM/Android 版本可能不保证 onStartInput 中 EditorInfo 完整
+        info?.let { updateEnterKeyText(it) }
+    }
+    
     private fun updateEnterKeyText(editorInfo: EditorInfo) {
-        val action = editorInfo.imeOptions and EditorInfo.IME_MASK_ACTION
-        val enterText = when (action) {
-            EditorInfo.IME_ACTION_GO -> "前往"
-            EditorInfo.IME_ACTION_SEARCH -> "搜索"
-            EditorInfo.IME_ACTION_SEND -> "发送"
-            EditorInfo.IME_ACTION_NEXT -> "下一项"
-            EditorInfo.IME_ACTION_DONE -> "完成"
+        val imeOptions = editorInfo.imeOptions
+        val action = imeOptions and EditorInfo.IME_MASK_ACTION
+        val noEnterAction = imeOptions and EditorInfo.IME_FLAG_NO_ENTER_ACTION != 0
+        Log.d(TAG, "updateEnterKeyText: imeOptions=0x${imeOptions.toString(16)}, action=0x${action.toString(16)}, noEnterAction=$noEnterAction")
+        val enterText = when {
+            noEnterAction -> "换行"
+            action == EditorInfo.IME_ACTION_GO -> "前往"
+            action == EditorInfo.IME_ACTION_SEARCH -> "搜索"
+            action == EditorInfo.IME_ACTION_SEND -> "发送"
+            action == EditorInfo.IME_ACTION_NEXT -> "下一项"
+            action == EditorInfo.IME_ACTION_DONE -> "完成"
             else -> "换行"
         }
         uiState.value = uiState.value.copy(enterKeyText = enterText)
@@ -997,14 +1007,15 @@ onVoiceModeChange = { enabled ->
                         needsUIUpdate = true
                     } else {
                         withContext(Dispatchers.Main) {
-                            val action = currentInputEditorInfo?.imeOptions ?: 0
-                            when (action and EditorInfo.IME_MASK_ACTION) {
+                            val imeOptions = currentInputEditorInfo?.imeOptions ?: 0
+                            val action = imeOptions and EditorInfo.IME_MASK_ACTION
+                            when (action) {
                                 EditorInfo.IME_ACTION_GO,
                                 EditorInfo.IME_ACTION_SEARCH,
                                 EditorInfo.IME_ACTION_SEND,
                                 EditorInfo.IME_ACTION_NEXT,
                                 EditorInfo.IME_ACTION_DONE -> {
-                                    sendDownUpKeyEvents(KeyEvent.KEYCODE_ENTER)
+                                    currentInputConnection?.performEditorAction(action)
                                 }
                                 else -> {
                                     sendDownUpKeyEvents(KeyEvent.KEYCODE_ENTER)
