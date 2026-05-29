@@ -1006,6 +1006,7 @@ onVoiceModeChange = { enabled ->
                         rimeEngine.clearComposition()
                         needsUIUpdate = true
                     } else {
+                        rimeEngine.clearComposition()
                         withContext(Dispatchers.Main) {
                             val imeOptions = currentInputEditorInfo?.imeOptions ?: 0
                             val action = imeOptions and EditorInfo.IME_MASK_ACTION
@@ -1022,6 +1023,16 @@ onVoiceModeChange = { enabled ->
                                 }
                             }
                         }
+                    }
+                    withContext(Dispatchers.Main) {
+                        uiState.value = uiState.value.copy(
+                            inputText = "",
+                            pendingEnglishText = "",
+                            candidates = emptyArray(),
+                            candidateComments = emptyArray(),
+                            associationCandidates = emptyArray(),
+                            isComposing = false
+                        )
                     }
                 }
                 "space" -> {
