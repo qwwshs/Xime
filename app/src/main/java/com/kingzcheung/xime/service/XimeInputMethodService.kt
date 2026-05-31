@@ -172,7 +172,11 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
         
         loadDarkModePreference()
         registerSharedPrefsListener()
-        
+
+        // 预先从偏好设置中读取方案 ID，确保 KeyboardView 首次组合时能显示正确的键盘布局
+        val savedSchema = SettingsPreferences.getCurrentSchema(this)
+        uiState.value = uiState.value.copy(currentSchemaId = savedSchema)
+
         initRimeEngine()
         
         serviceScope.launch(Dispatchers.IO) {
@@ -722,13 +726,16 @@ onVoiceModeChange = { enabled ->
         if (RimeEngine.isInitialized()) {
             val savedSchema = SettingsPreferences.getCurrentSchema(this)
             val currentSchema = rimeEngine.getCurrentSchema()
+            val availableSchemas = rimeEngine.getAvailableSchemas()
             if (savedSchema != currentSchema) {
                 Log.d(TAG, "onStartInput: schema mismatch, saved=$savedSchema, current=$currentSchema")
-                val availableSchemas = rimeEngine.getAvailableSchemas()
                 if (savedSchema in availableSchemas) {
                     rimeEngine.switchSchema(savedSchema)
                 }
             }
+            // 优先使用 savedSchema（用户偏好），不可用时回退到 RIME 当前方案
+            val schemaId = if (savedSchema in availableSchemas) savedSchema else currentSchema
+            uiState.value = uiState.value.copy(currentSchemaId = schemaId)
             updateSchemaName()
         }
 
@@ -924,7 +931,6 @@ onVoiceModeChange = { enabled ->
             withContext(Dispatchers.Main) {
                 uiState.value = uiState.value.copy(
                     schemaName = schemaInfo?.name ?: currentSchemaId,
-                    currentSchemaId = currentSchemaId,
                     schemas = schemas
                 )
             }

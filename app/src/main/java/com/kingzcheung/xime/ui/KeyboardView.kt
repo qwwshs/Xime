@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import com.kingzcheung.xime.clipboard.ClipboardItem
 import com.kingzcheung.xime.service.InputUIState
 import com.kingzcheung.xime.settings.SchemaInfo
+import com.kingzcheung.xime.settings.SettingsPreferences
 import com.kingzcheung.xime.speech.RecognitionState
 import com.kingzcheung.xime.ui.theme.DividerColor
 import com.kingzcheung.xime.ui.theme.DividerColorDark
@@ -112,10 +113,14 @@ fun KeyboardView(
     val context = androidx.compose.ui.platform.LocalContext.current
     var pendingAscii by remember { mutableStateOf(false) }
     var keyboardMode by remember(state.currentSchemaId, isAsciiMode, pendingAscii) {
-        mutableStateOf(
-            if (isAsciiMode || pendingAscii) KeyboardMode.FULL
-            else InputMode.keyboardModeFor(state.currentSchemaId)
-        )
+        val mode = if (isAsciiMode || pendingAscii) {
+            KeyboardMode.FULL
+        } else {
+            // 始终从偏好设置读取用户选中的方案来确定键盘布局
+            val savedSchema = SettingsPreferences.getCurrentSchema(context)
+            InputMode.keyboardModeFor(savedSchema)
+        }
+        mutableStateOf(mode)
     }
     var showMenu by remember { mutableStateOf(false) }
     var showCandidatePage by remember { mutableStateOf(false) }
@@ -134,17 +139,18 @@ fun KeyboardView(
     val dividerColor = if (isDarkTheme) DividerColorDark else DividerColor
     
     // 每次重新开始输入、切换方案或切换中英文时，重置面板状态
-    LaunchedEffect(state.inputSessionId, state.currentSchemaId, isAsciiMode) {
+    LaunchedEffect(state.inputSessionId, isAsciiMode) {
         showCandidatePage = false
         showClipboard = false
         showEmoji = false
         showSchemaList = false
         showMenu = false
-        // 同步键盘模式（兜底，remember 已处理同步初始化）
+        // 同步键盘模式——始终从偏好设置读取
         keyboardMode = if (isAsciiMode || pendingAscii) {
             KeyboardMode.FULL
         } else {
-            InputMode.keyboardModeFor(state.currentSchemaId)
+            val savedSchema = SettingsPreferences.getCurrentSchema(context)
+            InputMode.keyboardModeFor(savedSchema)
         }
     }
 
@@ -192,7 +198,6 @@ fun KeyboardView(
                 },
                 onHideKeyboard = {
                     onHideKeyboard?.invoke()
-                    keyboardMode = KeyboardMode.FULL
                     showMenu = false
                     showCandidatePage = false
                     showClipboard = false
@@ -526,7 +531,6 @@ fun KeyboardView(
                             .clickable(
                                 onClick = {
                                     onHideKeyboard?.invoke()
-                                    keyboardMode = KeyboardMode.FULL
                                     showMenu = false
                                     showCandidatePage = false
                                     showClipboard = false
