@@ -9,7 +9,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Backspace
@@ -82,7 +85,7 @@ fun NineKeyKeyboardLayout(
     }
 
     fun updateCandidates() {
-        firstOptions = decoder.firstSyllableOptions(digits)
+        firstOptions = decoder.firstSyllableOptions(digits, maxResults = 12)
     }
 
     fun sendToRime() {
@@ -168,37 +171,63 @@ fun NineKeyKeyboardLayout(
                     } else {
                         listOf("，", "。", "？", "！")
                     }
-                    Column(
-                        modifier = Modifier
-                            .fillMaxHeight()
-                            .weight(1f)
-                            .padding(end = 3.dp),
-                        verticalArrangement = Arrangement.spacedBy(0.dp)
-                    ) {
-                        displayItems.forEachIndexed { index, item ->
-                            if (showCandidates) {
+                    if (showCandidates && displayItems.size > 4) {
+                        // 候选项 > 4：可滚动列表
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .weight(1f)
+                                .padding(end = 3.dp),
+                            verticalArrangement = Arrangement.spacedBy(0.dp)
+                        ) {
+                            itemsIndexed(displayItems) { index, item ->
                                 val option = firstOptions[index]
                                 PinyinChoiceKey(
                                     text = option.pinyin,
                                     onClick = { onChoiceSelected(option) },
                                     backgroundColor = keyBackgroundColor,
                                     textColor = keyTextColor,
-                                    modifier = Modifier.weight(1f),
+                                    modifier = Modifier.fillMaxWidth().height(32.dp),
                                     onPress = { onKeyPressDown?.invoke(option.pinyin) },
                                     isFirst = index == 0,
                                     isLast = index == displayItems.lastIndex
                                 )
-                            } else {
-                                PunctuationKey2(
-                                    text = item,
-                                    onClick = { onKeyPress(item) },
-                                    backgroundColor = keyBackgroundColor,
-                                    textColor = keyTextColor,
-                                    modifier = Modifier.weight(1f),
-                                    onPress = { onKeyPressDown?.invoke(item) },
-                                    isFirst = index == 0,
-                                    isLast = index == displayItems.lastIndex
-                                )
+                            }
+                        }
+                    } else {
+                        // 候选项 ≤ 4 或标点模式：等分填充高度，不留空隙
+                        Column(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .weight(1f)
+                                .padding(end = 3.dp),
+                            verticalArrangement = Arrangement.spacedBy(0.dp)
+                        ) {
+                            displayItems.forEachIndexed { index, item ->
+                                if (showCandidates) {
+                                    val option = firstOptions[index]
+                                    PinyinChoiceKey(
+                                        text = option.pinyin,
+                                        onClick = { onChoiceSelected(option) },
+                                        backgroundColor = keyBackgroundColor,
+                                        textColor = keyTextColor,
+                                        modifier = Modifier.weight(1f),
+                                        onPress = { onKeyPressDown?.invoke(option.pinyin) },
+                                        isFirst = index == 0,
+                                        isLast = index == displayItems.lastIndex
+                                    )
+                                } else {
+                                    PunctuationKey2(
+                                        text = item,
+                                        onClick = { onKeyPress(item) },
+                                        backgroundColor = keyBackgroundColor,
+                                        textColor = keyTextColor,
+                                        modifier = Modifier.weight(1f),
+                                        onPress = { onKeyPressDown?.invoke(item) },
+                                        isFirst = index == 0,
+                                        isLast = index == displayItems.lastIndex
+                                    )
+                                }
                             }
                         }
                     }

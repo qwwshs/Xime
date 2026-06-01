@@ -67,6 +67,12 @@ class T9Decoder {
         private const val BOS = "<BOS>"
         private const val MAX_PINYIN_LEN = 6
 
+        /** K-Best: 每个 DP 状态保留的最优前驱数量 */
+        private const val BACK_BEAM = 2
+
+        /** DP 回溯中的一条前驱记录 */
+        data class BackEntry(val prevPos: Int, val prevPinyin: String, val score: Double)
+
         /** 编码→拼音映射（含精确匹配 + 模糊音扩展） */
         private val codeToPinyins: Map<String, List<String>> by lazy {
             FuzzyPinyin.PINYIN_LIST.groupBy { pinyin ->
@@ -115,8 +121,11 @@ class T9Decoder {
         }
         val n = digits.length
 
+        // ── K-Best Viterbi DP ──
+        // dp[pos][pinyin] = best score（保留最优，用于后续剪枝）
         val dp = Array(n + 1) { mutableMapOf<String, Double>() }
-        val back = Array(n + 1) { mutableMapOf<String, Pair<Int, String>>() }
+        // back[pos][pinyin] = 最多 BACK_BEAM 条前驱（含 score，用于 N-best 回溯）
+        val back = Array(n + 1) { mutableMapOf<String, MutableList<BackEntry>>() }
 
         dp[0][BOS] = 0.0
 
@@ -126,139 +135,195 @@ class T9Decoder {
 
             for (len in 1..maxLen) {
                 val code = digits.substring(i, i + len)
+                val pinyins = findMatchingPinyins(code)
+                val exactSet = if (len >= 2 && neighborEnabled && pinyins.isNotEmpty())
+                    pinyins.toSet() else null
 
                 // 1. 精确匹配 + 模糊音匹配
-                val pinyins = findMatchingPinyins(code)
-                val exactSet = if (len >= 2 && neighborEnabled && pinyins.isNotEmpty()) pinyins.toSet() else null
-
                 if (pinyins.isNotEmpty()) {
-                    val dpRow = dp[i]
-                    val dpNext = dp[i + len]
+                    val dpRow = dp[i]; val dpNext = dp[i + len]
                     val backRow = back[i + len]
                     for ((lastPinyin, score) in dpRow) {
                         for (pinyin in pinyins) {
-                            val transLP = lm.transitionLogProb(lastPinyin, pinyin)
-                            val lenBonus = if (pinyin.length <= 2) 0.0 else (pinyin.length - 2) * 0.3
+                            val t = lm.transitionLogProb(lastPinyin, pinyin)
+                            val lenBonus = if (pinyin.length <= 2) 0.0
+                                else (pinyin.length - 2) * 0.3
                             val fuzzyPenalty = if (isFuzzyMatch(pinyin, code)) -0.5 else 0.0
-                            val newScore = score + transLP + lenBonus + fuzzyPenalty
-                            if (newScore > (dpNext[pinyin] ?: Double.NEGATIVE_INFINITY)) {
-                                dpNext[pinyin] = newScore
-                                backRow[pinyin] = Pair(i, lastPinyin)
-                            }
+                            val newScore = score + t + lenBonus + fuzzyPenalty
+                            addBackEntry(backRow, dpNext, pinyin, BackEntry(i, lastPinyin, newScore))
                         }
                     }
                 }
 
-                // 2. 键盘邻居容错（仅对 len>=2 的编码）
+                // 2. 键盘邻居容错
                 if (len >= 2 && neighborEnabled) {
                     val neighborPinyins = findNeighborPinyins(code, exactSet)
                     if (neighborPinyins.isNotEmpty()) {
-                        val dpRow = dp[i]
-                        val dpNext = dp[i + len]
+                        val dpRow = dp[i]; val dpNext = dp[i + len]
                         val backRow = back[i + len]
                         for ((lastPinyin, score) in dpRow) {
                             for (pinyin in neighborPinyins) {
-                                val transLP = lm.transitionLogProb(lastPinyin, pinyin)
-                                val lenBonus = if (pinyin.length <= 2) 0.0 else (pinyin.length - 2) * 0.3
-                                val newScore = score + transLP + lenBonus - 1.5
-                                if (newScore > (dpNext[pinyin] ?: Double.NEGATIVE_INFINITY)) {
-                                    dpNext[pinyin] = newScore
-                                    backRow[pinyin] = Pair(i, lastPinyin)
-                                }
+                                val t = lm.transitionLogProb(lastPinyin, pinyin)
+                                val lenBonus = if (pinyin.length <= 2) 0.0
+                                    else (pinyin.length - 2) * 0.3
+                                val newScore = score + t + lenBonus - 1.5
+                                addBackEntry(backRow, dpNext, pinyin, BackEntry(i, lastPinyin, newScore))
                             }
                         }
                     }
                 }
             }
 
-            // 3. 单字母回退：每个数字对应字母作为占位
-            //    让 DP 能探索更多切分可能性
+            // 3. 单字母回退
             val letters = digitToLetters[digits[i]] ?: continue
-            val dpRow = dp[i]
-            val dpNext = dp[i + 1]
+            val dpRow = dp[i]; val dpNext = dp[i + 1]
             val backRow = back[i + 1]
             for ((lastPinyin, score) in dpRow) {
                 for (l in letters) {
                     val ch = l.toString()
-                    val transLP = lm.transitionLogProb(lastPinyin, ch)
-                    val newScore = score + transLP + 0.5
-                    if (newScore > (dpNext[ch] ?: Double.NEGATIVE_INFINITY)) {
-                        dpNext[ch] = newScore
-                        backRow[ch] = Pair(i, lastPinyin)
+                    val t = lm.transitionLogProb(lastPinyin, ch)
+                    val newScore = score + t + 0.5
+                    addBackEntry(backRow, dpNext, ch, BackEntry(i, lastPinyin, newScore))
+                }
+            }
+        }
+
+        // ── K-Best 回溯 ──
+        // 对每个终点拼音 × 每条 K-Best 前驱，沿单链回溯到 BOS
+        val results = mutableListOf<Path>()
+
+        // 按每个终点的最优得分降序遍历
+        val sortedTerminals = dp[n].entries
+            .sortedByDescending { it.value }
+            .take(maxPaths * 2) // 多取一些，后面每个 pinyin 有 K 个 entry
+
+        for ((pinyin) in sortedTerminals) {
+            if (results.size >= maxPaths) break
+            val entries = back[n][pinyin]
+            if (entries == null) continue
+
+            // 每一条 K-Best 前驱产生一个独立路径
+            for (e in entries.sortedByDescending { it.score }) {
+                if (results.size >= maxPaths) break
+
+                val syllables = mutableListOf<String>()
+                val lengths = mutableListOf<Int>()
+
+                // 第一步：最后一段从 e.prevPos → n
+                syllables.add(0, pinyin)
+                lengths.add(0, n - e.prevPos)
+
+                // 沿单链回溯（只取每步的最优前驱）
+                var pos = e.prevPos
+                var cur = e.prevPinyin
+                while (pos > 0) {
+                    val preds = back[pos][cur]
+                    if (preds == null || preds.isEmpty()) break
+                    val best = preds.maxByOrNull { it.score } ?: break
+                    val digitLen = pos - best.prevPos
+                    syllables.add(0, cur)
+                    lengths.add(0, digitLen)
+                    pos = best.prevPos
+                    cur = best.prevPinyin
+                }
+
+                if (syllables.isNotEmpty()) {
+                    val resolved = syllables.joinToString("")
+                    if (resolved !in results.map { it.resolved }.toSet()) {
+                        val displayScore = kotlin.math.exp(e.score / 10.0)
+                        results.add(Path(syllables, "", displayScore, lengths))
                     }
                 }
             }
         }
 
-        // 回溯构建结果
-        val results = mutableListOf<Path>()
-
-        for ((pinyin, score) in dp[n].entries.sortedByDescending { it.value }) {
-            val syllables = mutableListOf<String>()
-            val lengths = mutableListOf<Int>()
-            var pos = n
-            var cur = pinyin
-            while (pos > 0) {
-                val entry = back[pos][cur] ?: break
-                val digitLen = pos - entry.first
-                lengths.add(0, digitLen)
-                syllables.add(0, cur)
-                pos = entry.first
-                cur = entry.second
-            }
-            if (syllables.isNotEmpty()) {
-                val displayScore = kotlin.math.exp(score / 10.0)
-                results.add(Path(syllables, "", displayScore, lengths))
-                if (results.size >= maxPaths) break
-            }
-        }
-
-        // 如果没有路径到结尾，找最远的非结尾路径
+        // 如果没有路径到结尾，找最远的非结尾路径（fallback）
         if (results.isEmpty()) {
             for (pos in n - 1 downTo 1) {
                 if (dp[pos].isEmpty()) continue
-                for ((pinyin, score) in dp[pos].entries.sortedByDescending { it.value }.take(maxPaths)) {
-                    val syllables = mutableListOf<String>()
-                    val lengths = mutableListOf<Int>()
-                    var curPos = pos
-                    var cur = pinyin
-                    while (curPos > 0) {
-                        val entry = back[curPos][cur] ?: break
-                        val digitLen = curPos - entry.first
-                        lengths.add(0, digitLen)
-                        syllables.add(0, cur)
-                        curPos = entry.first
-                        cur = entry.second
-                    }
-                    if (syllables.isNotEmpty()) {
-                        val currentLetters = digits.substring(pos).mapNotNull { d ->
-                            digitToLetters[d]?.firstOrNull()
-                        }.joinToString("")
-                        val displayScore = kotlin.math.exp(score / 10.0)
-                        results.add(Path(syllables, currentLetters, displayScore, lengths))
+                val sorted = dp[pos].entries.sortedByDescending { it.value }
+                for ((pinyin) in sorted) {
+                    if (results.size >= maxPaths) break
+                    val entries = back[pos][pinyin] ?: continue
+                    for (e in entries.sortedByDescending { it.score }) {
                         if (results.size >= maxPaths) break
+
+                        val syllables = mutableListOf<String>()
+                        val lengths = mutableListOf<Int>()
+                        syllables.add(0, pinyin)
+                        lengths.add(0, pos - e.prevPos)
+
+                        var curPos = e.prevPos
+                        var cur = e.prevPinyin
+                        while (curPos > 0) {
+                            val preds = back[curPos][cur]
+                            if (preds == null || preds.isEmpty()) break
+                            val best = preds.maxByOrNull { it.score } ?: break
+                            val digitLen = curPos - best.prevPos
+                            syllables.add(0, cur)
+                            lengths.add(0, digitLen)
+                            curPos = best.prevPos
+                            cur = best.prevPinyin
+                        }
+
+                        if (syllables.isNotEmpty()) {
+                            val resolved = syllables.joinToString("")
+                            if (resolved !in results.map { it.resolved }.toSet()) {
+                                val currentLetters = digits.substring(pos).mapNotNull { d ->
+                                    digitToLetters[d]?.firstOrNull()
+                                }.joinToString("")
+                                val displayScore = kotlin.math.exp(e.score / 10.0)
+                                results.add(Path(syllables, currentLetters, displayScore, lengths))
+                            }
+                        }
                     }
                 }
                 if (results.isNotEmpty()) break
             }
         }
 
-        // Cache the result for the next call (e.g. firstSyllableOptions + bestPinyin in same keystroke)
+        // Cache the result
         decodeCache = digits to results.toList()
         return results
+    }
+
+    /** 向 K-Best backpointer 列表添加一条候选，自动修剪到 BACK_BEAM 条 */
+    private fun addBackEntry(
+        backRow: MutableMap<String, MutableList<BackEntry>>,
+        dpNext: MutableMap<String, Double>,
+        pinyin: String,
+        entry: BackEntry
+    ) {
+        // 更新 dp 最优得分（用于后续剪枝）
+        if (entry.score > (dpNext[pinyin] ?: Double.NEGATIVE_INFINITY)) {
+            dpNext[pinyin] = entry.score
+        }
+        // 加入 K-Best 列表
+        val list = backRow.getOrPut(pinyin) { mutableListOf() }
+        list.add(entry)
+        if (list.size > BACK_BEAM) {
+            list.sortByDescending { it.score }
+            list.removeAt(BACK_BEAM)
+        }
     }
 
     /** 查找匹配的拼音（精确匹配 + 模糊音扩展） */
     private fun findMatchingPinyins(code: String): List<String> {
         val exact = codeToPinyins[code]
         val fuzzy = fuzzyCodeMap[code]
-        return when {
-            exact != null && fuzzy != null ->
-                (exact + fuzzy.filter { it !in exact }).distinct()
-            exact != null -> exact
-            fuzzy != null -> fuzzy
-            else -> emptyList()
+        // 模糊匹配时，必须确保拼音的标准编码长度 == 输入编码长度
+        // 否则会引入长度不匹配的拼音（如"74"匹配到"shi"标准码"744"）
+        if (fuzzy != null) {
+            val filteredFuzzy = fuzzy.filter { pinyin ->
+                val standardCode = pinyin.map { FuzzyPinyin.LETTER_TO_DIGIT[it] ?: it }.joinToString("")
+                standardCode.length == code.length
+            }
+            return when {
+                exact != null -> (exact + filteredFuzzy.filter { it !in exact }).distinct()
+                else -> filteredFuzzy
+            }
         }
+        return exact ?: emptyList()
     }
 
     /** 判断拼音是否是通过模糊音匹配的 */
@@ -373,4 +438,7 @@ class T9Decoder {
     fun leftColumnCandidates(digits: String): List<String> {
         return candidates(digits, maxResults = 4)
     }
+
+    /** 暴露 LM 用于诊断测试 */
+    internal fun getLM(): PinyinBigramLM = lm
 }
