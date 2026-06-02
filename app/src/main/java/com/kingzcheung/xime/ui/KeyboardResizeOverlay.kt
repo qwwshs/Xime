@@ -63,12 +63,13 @@ fun KeyboardResizeOverlay(
         maxKeyboardHeightDp = (screenHeightDp * 3) / 5
         maxBottomPaddingDp = maxKeyboardHeightDp - minKeyboardHeightDp
     } else {
-        minKeyboardHeightDp = defaultHeightDp.coerceAtMost(screenHeightDp / 2)
+        minKeyboardHeightDp = 290.coerceAtMost(screenHeightDp / 2)
         maxKeyboardHeightDp = screenHeightDp / 2
         maxBottomPaddingDp = maxKeyboardHeightDp - minKeyboardHeightDp
     }
 
-    val minBottomPaddingDp = 0
+    // 允许负值，用于缩减键盘底部的 40dp 固定空白区
+    val minBottomPaddingDp = -40
 
     val safeDefaultHeightDp = defaultHeightDp.coerceIn(minKeyboardHeightDp, maxKeyboardHeightDp)
     val safeDefaultBottomPaddingDp = defaultBottomPaddingDp.coerceIn(minBottomPaddingDp, maxBottomPaddingDp)
@@ -196,14 +197,14 @@ fun KeyboardResizeOverlay(
                 }
             }
 
-            Text(
-                text = "高度: ${currentHeightDp.roundToInt()}dp | 底部: ${currentBottomPaddingDp.roundToInt()}dp",
-                color = Color.White,
-                fontSize = 14.sp,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 8.dp)
-            )
+//            Text(
+//                text = "高度: ${currentHeightDp.roundToInt()}dp | 底部: ${currentBottomPaddingDp.roundToInt()}dp",
+//                color = Color.White,
+//                fontSize = 14.sp,
+//                modifier = Modifier
+//                    .align(Alignment.BottomCenter)
+//                    .padding(bottom = 8.dp)
+//            )
         }
     }
 }

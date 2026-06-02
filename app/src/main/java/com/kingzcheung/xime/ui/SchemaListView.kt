@@ -5,18 +5,24 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Keyboard
+import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -40,7 +46,8 @@ fun SchemaListView(
     isDarkTheme: Boolean,
     backgroundColor: Color,
     accentColor: Color,
-    onSelectSchema: (String, String?) -> Unit,
+    onSelectSchema: (String) -> Unit,
+    onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val itemBgColor = if (isDarkTheme) Color(0xFF45474A) else Color.White
@@ -54,56 +61,135 @@ fun SchemaListView(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(backgroundColor)
-            .padding(horizontal = if (isLandscape) 50.dp else 16.dp, vertical = 16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+            .background(backgroundColor),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        if (schemas.isEmpty()) {
+        // 导航区
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp)
+                .padding(horizontal = if (isLandscape) 50.dp else 8.dp),
+            contentAlignment = Alignment.CenterStart
+        ) {
             Box(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .background(if (isDarkTheme) Color(0xFF374151) else Color(0xFFF3F4F6))
+                    .clickable { onBack?.invoke() },
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = "没有可用的键盘方案",
-
-                    color = subTextColor,
-                    fontSize = 13.sp
+                Icon(
+                    imageVector = Icons.Default.KeyboardArrowLeft,
+                    contentDescription = "返回",
+                    tint = textColor,
+                    modifier = Modifier.size(24.dp)
                 )
             }
-        } else {
-            val rows = schemas.chunked(columns)
-            rows.forEachIndexed { rowIndex, rowItems ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(if (isLandscape) 8.dp else 12.dp)
-                ) {
-                    rowItems.forEach { schema ->
-                        // 选中判定：schemaId + displayLayoutId 都匹配
-                        val isSelected = schema.schemaId == currentSchemaId &&
-                            (schema.displayLayoutId == null || schema.displayLayoutId == currentLayoutId)
+        }
 
-                        SchemaGridItem(
-                            schema = schema,
-                            isSelected = isSelected,
-                            bgColor = itemBgColor,
-                            textColor = textColor,
-                            subTextColor = subTextColor,
-                            accentColor = accentColor,
-                            layoutHint = null,
-                            onSelect = { onSelectSchema(schema.schemaId, schema.displayLayoutId) },
-                            modifier = Modifier.weight(1f),
-                            isLandscape = isLandscape
-                        )
-                    }
-                    if (rowItems.size < columns) {
-                        repeat(columns - rowItems.size) {
-                            Spacer(modifier = Modifier.weight(1f))
+        if (isLandscape) {
+            // 横屏：一行 8 列，与 MenuBar 一致
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 50.dp)
+                    .weight(1f),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                schemas.forEach { schema ->
+                    SchemaGridItem(
+                        schema = schema,
+                        isSelected = schema.schemaId == currentSchemaId,
+                        bgColor = itemBgColor,
+                        textColor = textColor,
+                        accentColor = accentColor,
+                        onSelect = { onSelectSchema(schema.schemaId) },
+                        modifier = Modifier.weight(1f),
+                        isLandscape = true
+                    )
+                }
+                if (schemas.isEmpty()) {
+                    Text(
+                        text = "没有可用的输入方案",
+                        color = subTextColor,
+                        fontSize = 13.sp
+                    )
+                }
+            }
+        } else {
+            // 竖屏：每页最多 8 项（2 行 × 4 列），与 MenuBar 一致
+            val itemsPerPage = 8
+            val pages = schemas.chunked(itemsPerPage).map { page ->
+                page + List(itemsPerPage - page.size) { null }
+            }
+            val pagerState = rememberPagerState(pageCount = { pages.size })
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.SpaceAround
+            ) {
+                if (schemas.isEmpty()) {
+                    Text(
+                        text = "没有可用的输入方案",
+                        color = subTextColor,
+                        fontSize = 13.sp
+                    )
+                } else {
+                    HorizontalPager(
+                        state = pagerState,
+                        modifier = Modifier.fillMaxWidth()
+                    ) { page ->
+                        FlowRow(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            maxItemsInEachRow = 4
+                        ) {
+                            pages[page].forEach { schema ->
+                                if (schema != null) {
+                                    SchemaGridItem(
+                                        schema = schema,
+                                        isSelected = schema.schemaId == currentSchemaId,
+                                        bgColor = itemBgColor,
+                                        textColor = textColor,
+                                        accentColor = accentColor,
+                                        onSelect = { onSelectSchema(schema.schemaId) },
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                } else {
+                                    Box(modifier = Modifier.weight(1f).aspectRatio(1f))
+                                }
+                            }
                         }
                     }
-                }
-                if (rowIndex < rows.size - 1) {
-                    Spacer(modifier = Modifier.height(if (isLandscape) 8.dp else 12.dp))
+
+                    if (pages.size > 1) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            repeat(pages.size) { index ->
+                                Box(
+                                    modifier = Modifier
+                                        .size(if (index == pagerState.currentPage) 8.dp else 6.dp)
+                                        .clip(CircleShape)
+                                        .background(
+                                            if (index == pagerState.currentPage) textColor
+                                            else textColor.copy(alpha = 0.3f)
+                                        )
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }

@@ -34,10 +34,22 @@ object SettingsPreferences {
     
     private const val KEY_KEYBOARD_HEIGHT_DP = "keyboard_height_dp"
     private const val KEY_KEYBOARD_HEIGHT_DP_LANDSCAPE = "keyboard_height_dp_landscape"
-    private const val DEFAULT_KEYBOARD_HEIGHT_DP = 290
+    const val DEFAULT_KEYBOARD_HEIGHT_DP = 308
     
     private const val KEY_KEYBOARD_BOTTOM_PADDING_DP = "keyboard_bottom_padding_dp"
     private const val DEFAULT_KEYBOARD_BOTTOM_PADDING_DP = 0
+
+    private const val KEY_TOOLBAR_BUTTONS = "toolbar_buttons"
+    private val DEFAULT_TOOLBAR_BUTTONS = com.kingzcheung.xime.ui.ToolbarButton.DEFAULT_VISIBLE.joinToString(",") { it.id }
+
+    fun getToolbarButtons(context: Context): List<String> {
+        val raw = getPrefs(context).getString(KEY_TOOLBAR_BUTTONS, DEFAULT_TOOLBAR_BUTTONS) ?: DEFAULT_TOOLBAR_BUTTONS
+        return raw.split(",").filter { it.isNotEmpty() }
+    }
+
+    fun setToolbarButtons(context: Context, buttons: List<String>) {
+        getPrefs(context).edit().putString(KEY_TOOLBAR_BUTTONS, buttons.joinToString(",")).apply()
+    }
 
     private const val KEY_WEBDAV_URL = "webdav_url"
     private const val KEY_WEBDAV_USERNAME = "webdav_username"
@@ -71,7 +83,8 @@ object SettingsPreferences {
     }
     
     fun getDarkMode(context: Context): Int {
-        return getPrefs(context).getInt(KEY_DARK_MODE, 0)
+        // 0 = 浅色, 1 = 深色, 2 = 跟随系统（默认）
+        return getPrefs(context).getInt(KEY_DARK_MODE, 2)
     }
     
     fun setDarkMode(context: Context, mode: Int) {

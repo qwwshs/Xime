@@ -1,7 +1,9 @@
 package com.kingzcheung.xime.service
 
 import com.kingzcheung.xime.settings.SchemaInfo
+import com.kingzcheung.xime.settings.SettingsPreferences
 import com.kingzcheung.xime.speech.RecognitionState
+import com.kingzcheung.xime.ui.ToolbarButton
 
 data class InputUIState(
     val candidates: Array<String> = emptyArray(),
@@ -16,12 +18,12 @@ data class InputUIState(
     val darkMode: Int = 0,
     val themeId: String = "ocean_blue",
     val showBottomButtons: Boolean = false,
-    val keyboardHeightDp: Int = 290,
+    val keyboardHeightDp: Int = SettingsPreferences.DEFAULT_KEYBOARD_HEIGHT_DP,
     val keyboardBottomPaddingDp: Int = 0,
     val showKeyboardResize: Boolean = false,
-    val resizePreviewHeightDp: Int = 290,
+    val resizePreviewHeightDp: Int = SettingsPreferences.DEFAULT_KEYBOARD_HEIGHT_DP,
     val resizePreviewBottomPaddingDp: Int = 0,
-    val originalKeyboardHeightDp: Int = 290,
+    val originalKeyboardHeightDp: Int = SettingsPreferences.DEFAULT_KEYBOARD_HEIGHT_DP,
     val originalKeyboardBottomPaddingDp: Int = 0,
     val associationCandidates: Array<String> = emptyArray(),
     val associationEnabled: Boolean = false,
@@ -39,7 +41,8 @@ data class InputUIState(
     val hasNextPage: Boolean = false,
     val hasPrevPage: Boolean = false,
     val inputSessionId: Long = 0,
-    val t9ResetSignal: Long = 0
+    val t9ResetSignal: Long = 0,
+    val toolbarButtons: List<String> = ToolbarButton.DEFAULT_VISIBLE.map { it.id }
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -58,14 +61,14 @@ data class InputUIState(
         if (enterKeyText != other.enterKeyText) return false
         if (darkMode != other.darkMode) return false
         if (themeId != other.themeId) return false
-if (showBottomButtons != other.showBottomButtons) return false
-    if (keyboardHeightDp != other.keyboardHeightDp) return false
-    if (keyboardBottomPaddingDp != other.keyboardBottomPaddingDp) return false
-    if (showKeyboardResize != other.showKeyboardResize) return false
-    if (resizePreviewHeightDp != other.resizePreviewHeightDp) return false
-    if (resizePreviewBottomPaddingDp != other.resizePreviewBottomPaddingDp) return false
-    if (originalKeyboardHeightDp != other.originalKeyboardHeightDp) return false
-    if (originalKeyboardBottomPaddingDp != other.originalKeyboardBottomPaddingDp) return false
+        if (showBottomButtons != other.showBottomButtons) return false
+        if (keyboardHeightDp != other.keyboardHeightDp) return false
+        if (keyboardBottomPaddingDp != other.keyboardBottomPaddingDp) return false
+        if (showKeyboardResize != other.showKeyboardResize) return false
+        if (resizePreviewHeightDp != other.resizePreviewHeightDp) return false
+        if (resizePreviewBottomPaddingDp != other.resizePreviewBottomPaddingDp) return false
+        if (originalKeyboardHeightDp != other.originalKeyboardHeightDp) return false
+        if (originalKeyboardBottomPaddingDp != other.originalKeyboardBottomPaddingDp) return false
         if (!associationCandidates.contentEquals(other.associationCandidates)) return false
         if (associationEnabled != other.associationEnabled) return false
         if (isVoiceMode != other.isVoiceMode) return false
@@ -83,6 +86,7 @@ if (showBottomButtons != other.showBottomButtons) return false
         if (hasPrevPage != other.hasPrevPage) return false
         if (inputSessionId != other.inputSessionId) return false
         if (t9ResetSignal != other.t9ResetSignal) return false
+        if (toolbarButtons != other.toolbarButtons) return false
 
         return true
     }
@@ -99,14 +103,14 @@ if (showBottomButtons != other.showBottomButtons) return false
         result = 31 * result + enterKeyText.hashCode()
         result = 31 * result + darkMode
         result = 31 * result + themeId.hashCode()
-result = 31 * result + showBottomButtons.hashCode()
-    result = 31 * result + keyboardHeightDp
-    result = 31 * result + keyboardBottomPaddingDp
-    result = 31 * result + showKeyboardResize.hashCode()
-    result = 31 * result + resizePreviewHeightDp
-    result = 31 * result + resizePreviewBottomPaddingDp
-    result = 31 * result + originalKeyboardHeightDp
-    result = 31 * result + originalKeyboardBottomPaddingDp
+        result = 31 * result + showBottomButtons.hashCode()
+        result = 31 * result + keyboardHeightDp
+        result = 31 * result + keyboardBottomPaddingDp
+        result = 31 * result + showKeyboardResize.hashCode()
+        result = 31 * result + resizePreviewHeightDp
+        result = 31 * result + resizePreviewBottomPaddingDp
+        result = 31 * result + originalKeyboardHeightDp
+        result = 31 * result + originalKeyboardBottomPaddingDp
         result = 31 * result + associationCandidates.contentHashCode()
         result = 31 * result + associationEnabled.hashCode()
         result = 31 * result + isVoiceMode.hashCode()
@@ -122,8 +126,8 @@ result = 31 * result + showBottomButtons.hashCode()
         result = 31 * result + deploymentMessage.hashCode()
         result = 31 * result + hasNextPage.hashCode()
         result = 31 * result + hasPrevPage.hashCode()
-        result = 31 * result + inputSessionId.hashCode()
         result = 31 * result + t9ResetSignal.hashCode()
+        result = 31 * result + toolbarButtons.hashCode()
         return result
     }
 }

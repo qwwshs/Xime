@@ -6,16 +6,22 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.PushPin
@@ -29,6 +35,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -46,18 +54,96 @@ fun ClipboardView(
     onTogglePin: (Long) -> Unit,
     onAddToQuickSend: (Long) -> Unit,
     onRemoveFromQuickSend: (Long) -> Unit,
+    onBack: (() -> Unit)? = null,
+    onClipboardTabChange: ((Int) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val itemBgColor = if (isDarkTheme) Color(0xFF45474A) else Color.White
     val textColor = if (isDarkTheme) Color(0xFFE8EAED) else Color(0xFF202124)
     val subTextColor = if (isDarkTheme) Color(0xFF9AA0A6) else Color(0xFF5F6368)
     val accentColor = if (isDarkTheme) Color(0xFF8AB4F8) else Color(0xFF1A73E8)
-    
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+
     Column(
         modifier = modifier
             .fillMaxWidth()
             .background(backgroundColor)
     ) {
+        // 标签切换栏（原在 CandidateBar 中，现搬到这里）
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal =if (isLandscape) 50.dp else 8.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(if (isDarkTheme) Color(0xFF374151) else Color(0xFFF3F4F6))
+                    .clickable { onBack?.invoke() },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                    contentDescription = "关闭面板",
+                    tint = accentColor,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Box(
+                modifier = Modifier
+                    .height(28.dp)
+                    .clip(RoundedCornerShape(13.dp))
+                    .background(if (isDarkTheme) Color(0xFF374151) else Color(0xFFF3F4F6))
+                    .padding(2.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxHeight(),
+                    horizontalArrangement = Arrangement.spacedBy(0.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(11.dp))
+                            .background(if (selectedTab == 0) accentColor else Color.Transparent)
+                            .clickable { onClipboardTabChange?.invoke(0) }
+                            .padding(horizontal = 12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "剪贴板",
+                            color = if (selectedTab == 0) Color.White else textColor,
+                            fontSize = 11.sp,
+                            fontWeight = if (selectedTab == 0) FontWeight.Medium else FontWeight.Normal
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(11.dp))
+                            .background(if (selectedTab == 1) accentColor else Color.Transparent)
+                            .clickable { onClipboardTabChange?.invoke(1) }
+                            .padding(horizontal = 12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "快捷发送",
+                            color = if (selectedTab == 1) Color.White else textColor,
+                            fontSize = 11.sp,
+                            fontWeight = if (selectedTab == 1) FontWeight.Medium else FontWeight.Normal
+                        )
+                    }
+                }
+            }
+        }
+
         if (selectedTab == 0) {
             ClipboardTabContent(
                 items = clipboardItems,

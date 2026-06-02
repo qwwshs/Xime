@@ -67,6 +67,7 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
         private const val TAG = "XimeInputMethodService"
         private const val DARK_MODE_LIGHT = 0
         private const val DARK_MODE_DARK = 1
+        private const val DARK_MODE_SYSTEM = 2
     }
 
     private val lifecycleRegistry = LifecycleRegistry(this)
@@ -125,7 +126,8 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
             themeId = SettingsPreferences.getKeyboardTheme(this),
             showBottomButtons = SettingsPreferences.showBottomButtons(this),
             keyboardHeightDp = SettingsPreferences.getKeyboardHeightDp(this, isLandscape),
-            keyboardBottomPaddingDp = SettingsPreferences.getKeyboardBottomPaddingDp(this)
+            keyboardBottomPaddingDp = SettingsPreferences.getKeyboardBottomPaddingDp(this),
+            toolbarButtons = SettingsPreferences.getToolbarButtons(this)
         )
     }
     
@@ -148,12 +150,27 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
     }
     
     fun toggleDarkMode() {
-        val newMode = if (uiState.value.darkMode == DARK_MODE_LIGHT) DARK_MODE_DARK else DARK_MODE_LIGHT
+        val currentMode = uiState.value.darkMode
+        val newMode = when (currentMode) {
+            DARK_MODE_LIGHT -> DARK_MODE_DARK
+            DARK_MODE_DARK -> DARK_MODE_LIGHT
+            else -> { // DARK_MODE_SYSTEM: 切换到当前系统主题的反面
+                if (isDarkTheme()) DARK_MODE_LIGHT else DARK_MODE_DARK
+            }
+        }
         saveDarkModePreference(newMode)
     }
     
     fun isDarkTheme(): Boolean {
-        return uiState.value.darkMode == DARK_MODE_DARK
+        return when (uiState.value.darkMode) {
+            DARK_MODE_DARK -> true
+            DARK_MODE_SYSTEM -> {
+                val nightModeFlags = resources.configuration.uiMode and
+                        android.content.res.Configuration.UI_MODE_NIGHT_MASK
+                nightModeFlags == android.content.res.Configuration.UI_MODE_NIGHT_YES
+            }
+            else -> false
+        }
     }
 
     override fun onCreate() {
@@ -442,6 +459,7 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                                 schemas = state.schemas,
                                 enterKeyText = state.enterKeyText,
                             isDarkTheme = isDarkTheme,
+                            darkMode = state.darkMode,
                             themeId = state.themeId,
                             showBottomButtons = state.showBottomButtons,
                             keyboardHeightDp = keyboardHeight,
@@ -615,12 +633,17 @@ onVoiceModeChange = { enabled ->
                                     isTrackingVoiceButtons = false
 }
  },
-                              isDeploying = state.isDeploying,
-                              deploymentMessage = state.deploymentMessage,
-                              onDismissDeploying = {
-                                  notifyDeploymentStatus(false, "")
-                              }
-                               )
+                               isDeploying = state.isDeploying,
+                               deploymentMessage = state.deploymentMessage,
+                               onDismissDeploying = {
+                                   notifyDeploymentStatus(false, "")
+                               },
+                               toolbarButtons = state.toolbarButtons,
+                               onUpdateToolbarButtons = { buttons ->
+                                   SettingsPreferences.setToolbarButtons(this@XimeInputMethodService, buttons)
+                                   uiState.value = uiState.value.copy(toolbarButtons = buttons)
+                               }
+                                )
                          }
                      }
                      
@@ -799,7 +822,11 @@ onVoiceModeChange = { enabled ->
         // 作为 onStartInput 的补充，某些 ROM/Android 版本可能不保证 onStartInput 中 EditorInfo 完整
         info?.let { updateEnterKeyText(it) }
     }
-    
+
+    override fun onEvaluateFullscreenMode(): Boolean {
+        return false
+    }
+
     private fun updateEnterKeyText(editorInfo: EditorInfo) {
         val imeOptions = editorInfo.imeOptions
         val action = imeOptions and EditorInfo.IME_MASK_ACTION
@@ -946,7 +973,11 @@ onVoiceModeChange = { enabled ->
     }
 
     private fun handleKeyPress(key: String, isShifted: Boolean) {
-        serviceScope.launch(Dispatchers.Default) {
+        val targetDispatcher = when (key) {
+            "space", "enter", "delete", "clear_composition", "clear_all" -> Dispatchers.IO
+            else -> Dispatchers.Default
+        }
+        serviceScope.launch(targetDispatcher) {
             val state = uiState.value
             var needsUIUpdate = false
             
@@ -1267,10 +1298,16 @@ onVoiceModeChange = { enabled ->
                 }
                 withContext(Dispatchers.Main) {
                     commitText(committedText)
+                    uiState.value = uiState.value.copy(
+                        inputText = "",
+                        candidates = emptyArray(),
+                        candidateComments = emptyArray(),
+                        isComposing = false,
+                        hasNextPage = false,
+                        hasPrevPage = false,
+                        isShowingRecentClipboard = false
+                    )
                 }
-            }
-            withContext(Dispatchers.Main) {
-                updateUI()
             }
         }
     }
@@ -1512,8 +1549,10 @@ onVoiceModeChange = { enabled ->
         
         predictionManager.recordInput(text)
         
-        if (!uiState.value.isAsciiMode) {
-            getPredictionFromPlugin(predictionManager.lastCommittedText)
+        mainHandler.post {
+            if (!uiState.value.isAsciiMode) {
+                getPredictionFromPlugin(predictionManager.lastCommittedText)
+            }
         }
     }
     

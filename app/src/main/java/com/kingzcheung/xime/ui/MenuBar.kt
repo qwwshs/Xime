@@ -3,7 +3,9 @@ package com.kingzcheung.xime.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -12,6 +14,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.twotone.Assignment
@@ -20,6 +25,7 @@ import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.EmojiEmotions
 import androidx.compose.material.icons.filled.Keyboard
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Height
 import androidx.compose.material.icons.filled.Refresh
@@ -61,6 +67,7 @@ data class MenuItem(
 fun MenuBar(
     isVisible: Boolean,
     isDarkTheme: Boolean,
+    darkMode: Int = 2,
     backgroundColor: Color,
     onDismiss: () -> Unit,
     onClipboard: () -> Unit,
@@ -71,6 +78,8 @@ fun MenuBar(
     onSettings: () -> Unit,
     onSchemaList: () -> Unit,
     onToggleDarkMode: () -> Unit,
+    onToolbarCustomize: () -> Unit = {},
+    bottomPaddingDp: Int = 0,
     modifier: Modifier = Modifier
 ) {
     if (!isVisible) return
@@ -85,24 +94,61 @@ fun MenuBar(
         MenuItem(rememberVectorPainter(Icons.TwoTone.Quickreply), "快捷发送", onQuickSend),
         MenuItem(rememberVectorPainter(Icons.TwoTone.SettingsOverscan), "键盘调节", onKeyboardResize),
         MenuItem(rememberVectorPainter(Icons.TwoTone.EmojiEmotions), "表情", onEmoji),
-        MenuItem(rememberVectorPainter(if (isDarkTheme) Icons.TwoTone.LightMode else Icons.TwoTone.DarkMode), if (isDarkTheme) "浅色模式" else "深色模式", onToggleDarkMode),
+        MenuItem(rememberVectorPainter(when (darkMode) {
+                0 -> Icons.TwoTone.DarkMode
+                1 -> Icons.TwoTone.LightMode
+                else -> if (isDarkTheme) Icons.TwoTone.LightMode else Icons.TwoTone.DarkMode
+            }), when (darkMode) {
+                0 -> "深色模式"
+                1 -> "浅色模式"
+                else -> "跟随系统"
+            }, onToggleDarkMode),
         MenuItem(rememberVectorPainter(Icons.TwoTone.Rotate90DegreesCcw), "部署方案", onReloadConfig),
-        MenuItem(rememberVectorPainter(Icons.TwoTone.Keyboard), "键盘选择", onSchemaList),
+        MenuItem(rememberVectorPainter(Icons.TwoTone.BorderTop), "定制工具栏", onToolbarCustomize),
+        MenuItem(rememberVectorPainter(Icons.TwoTone.Keyboard), "输入方案", onSchemaList),
         MenuItem(rememberVectorPainter(Icons.TwoTone.Settings), "设置", onSettings)
     )
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(backgroundColor)
-            .padding(horizontal = if (isLandscape) 50.dp else 16.dp, vertical = if (isLandscape) 8.dp else 16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+            .background(backgroundColor),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        // 导航区（与候选栏高度一致）
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp)
+                .padding(horizontal = if (isLandscape) 50.dp else 8.dp),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .background(if (isDarkTheme) Color(0xFF374151) else Color(0xFFF3F4F6))
+                    .clickable { onDismiss() },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.KeyboardArrowUp,
+                    contentDescription = "关闭菜单",
+                    tint = textColor,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
+
+        // 内容区（菜单项）
         if (isLandscape) {
             // 横屏：一行 8 列
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 50.dp)
+                    .weight(1f),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 menuItems.forEach { item ->
                     MenuItemButton(
@@ -115,28 +161,66 @@ fun MenuBar(
                 }
             }
         } else {
-            // 竖屏：2 行 × 4 列
+            // 竖屏：每页最多 8 项（2 行 × 4 列），支持横向翻页
+            val itemsPerPage = 8
+            val pages = menuItems.chunked(itemsPerPage).map { page ->
+                page + List(itemsPerPage - page.size) { null }
+            }
+            val pagerState = rememberPagerState(pageCount = { pages.size })
             Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.SpaceAround
             ) {
-                menuItems.chunked(4).forEach { rowItems ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier.fillMaxWidth()
+                ) { page ->
+                    FlowRow(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        maxItemsInEachRow = 4
                     ) {
-                        rowItems.forEach { item ->
-                            MenuItemButton(
-                                item = item,
-                                bgColor = itemBgColor,
-                                textColor = textColor,
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                        repeat(4 - rowItems.size) {
-                            Spacer(modifier = Modifier.weight(1f))
+                        pages[page].forEach { item ->
+                            if (item != null) {
+                                MenuItemButton(
+                                    item = item,
+                                    bgColor = itemBgColor,
+                                    textColor = textColor,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            } else {
+                                Box(modifier = Modifier.weight(1f).aspectRatio(1f))
+                            }
                         }
                     }
+                }
+
+                if (pages.size > 1) {
+
+                    Row(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        repeat(pages.size) { index ->
+                            Box(
+                                modifier = Modifier
+                                    .size(if (index == pagerState.currentPage) 8.dp else 6.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        if (index == pagerState.currentPage) textColor
+                                        else textColor.copy(alpha = 0.3f)
+                                    )
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
                 }
             }
         }
