@@ -123,6 +123,7 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
             darkMode = SettingsPreferences.getDarkMode(this),
             themeId = SettingsPreferences.getKeyboardTheme(this),
             showBottomButtons = SettingsPreferences.showBottomButtons(this),
+            isSttEnabled = SettingsPreferences.isSttEnabled(this@XimeInputMethodService),
             keyboardHeightDp = SettingsPreferences.getKeyboardHeightDp(this, isLandscape),
             keyboardBottomPaddingDp = SettingsPreferences.getKeyboardBottomPaddingDp(this),
             toolbarButtons = SettingsPreferences.getToolbarButtons(this)
@@ -136,6 +137,10 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                 "dark_mode", "keyboard_theme", "show_bottom_buttons", "keyboard_height_dp", "keyboard_bottom_padding_dp" -> {
                     loadDarkModePreference()
                     Log.d(TAG, "Settings changed: $key, updated UI state")
+                }
+                "stt_enabled" -> {
+                    uiState.value = uiState.value.copy(isSttEnabled = SettingsPreferences.isSttEnabled(this@XimeInputMethodService))
+                    Log.d(TAG, "STT setting changed: $key -> ${SettingsPreferences.isSttEnabled(this@XimeInputMethodService)}")
                 }
             }
         }
@@ -477,9 +482,9 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                              quickSendItems = quickSendItemsState.value,
                              recentClipboardItems = recentClipboardItemsState.value,
                             candidateComments = state.candidateComments,
-                            isVoiceMode = state.isVoiceMode,
-                            isSttEnabled = SettingsPreferences.isSttEnabled(this@XimeInputMethodService),
-                            voiceBottomActive = state.voiceButtonState.bottomActive,
+                             isVoiceMode = state.isVoiceMode,
+                             isSttEnabled = state.isSttEnabled,
+                             voiceBottomActive = state.voiceButtonState.bottomActive,
                             voiceLeftActive = state.voiceButtonState.leftActive,
                             voiceRightActive = state.voiceButtonState.rightActive,
                             voicePluginName = state.voicePluginName,
@@ -492,6 +497,9 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                             },
                             onKeyPressDown = { key ->
                                 feedbackManager.performKeyPressDownEffect(key)
+                                if (key == "space") {
+                                    voiceRecognitionHandler.startDelayedPreStart()
+                                }
                             },
                             onCursorMove = { direction ->
                                 serviceScope.launch(Dispatchers.Main) {
