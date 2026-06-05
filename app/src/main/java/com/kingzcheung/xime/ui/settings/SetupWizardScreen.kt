@@ -117,6 +117,13 @@ fun SetupWizardScreen(
                     )
                     SetupStep.SwitchToIme -> SwitchToImeStep(
                         onCompleted = {
+                            // 将当前方案设为第一个已启用的方案
+                            // 否则 currentSchema 保持默认值 "wubi86"，
+                            // 用户可能根本没启用 wubi86，导致键盘无法输入中文
+                            val enabledSchemas = SchemaManager.getEnabledSchemas(context)
+                            if (enabledSchemas.isNotEmpty()) {
+                                SettingsPreferences.setCurrentSchema(context, enabledSchemas.first())
+                            }
                             SettingsPreferences.setSetupCompleted(context, true)
                             SettingsPreferences.setDeploymentDone(context, true)
                             onCompleted()
@@ -491,16 +498,6 @@ private fun SwitchToImeStep(onCompleted: () -> Unit) {
         }
 
         Spacer(Modifier.height(12.dp))
-        OutlinedButton(
-            onClick = {
-                context.startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
-            },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("去系统设置切换")
-        }
-
-        Spacer(Modifier.weight(1f))
 
         Button(
             onClick = onCompleted,

@@ -322,17 +322,28 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                 withContext(Dispatchers.Main) {
                     val savedSchema = SettingsPreferences.getCurrentSchema(this@XimeInputMethodService)
                     val availableSchemas = rimeEngine.getAvailableSchemas()
-                    Log.d(TAG, "initRimeEngine: availableSchemas=${availableSchemas.joinToString()}")
-                    
                     val currentSchema = rimeEngine.getCurrentSchema()
-                    Log.d(TAG, "initRimeEngine: currentSchema=$currentSchema, savedSchema=$savedSchema")
+                    Log.d(TAG, "initRimeEngine: currentSchema=$currentSchema, savedSchema=$savedSchema, availableSchemas=${availableSchemas.joinToString()}")
                     
-                    if (savedSchema in availableSchemas && currentSchema != savedSchema) {
-                        Log.d(TAG, "initRimeEngine: Switching to saved schema: $savedSchema")
-                        rimeEngine.switchSchema(savedSchema)
-                    } else if (savedSchema !in availableSchemas && SchemaManager.isSchemaCompiled(this@XimeInputMethodService, savedSchema)) {
-                        Log.d(TAG, "initRimeEngine: Schema compiled but not in get_schema_list, switching anyway")
-                        rimeEngine.switchSchema(savedSchema)
+                    when {
+                        savedSchema in availableSchemas -> {
+                            // 即使 savedSchema == currentSchema 也要调用 switchSchema，
+                            // 因为 nativeCreateSession 后 schema 的 processor/translator 等
+                            // 可能未完全初始化，switchSchema 会触发完整的初始化流程
+                            Log.d(TAG, "initRimeEngine: Switching to saved schema: $savedSchema")
+                            rimeEngine.switchSchema(savedSchema)
+                        }
+                        SchemaManager.isSchemaCompiled(this@XimeInputMethodService, savedSchema) -> {
+                            Log.d(TAG, "initRimeEngine: Schema compiled but not in get_schema_list, switching anyway")
+                            rimeEngine.switchSchema(savedSchema)
+                        }
+                        availableSchemas.isNotEmpty() -> {
+                            // savedSchema 不可用且未编译，退而求其次用第一个可用方案
+                            val fallbackSchema = availableSchemas.first()
+                            Log.d(TAG, "initRimeEngine: savedSchema '$savedSchema' not available, falling back to '$fallbackSchema'")
+                            rimeEngine.switchSchema(fallbackSchema)
+                            SettingsPreferences.setCurrentSchema(this@XimeInputMethodService, fallbackSchema)
+                        }
                     }
                     
                     updateSchemaName()
@@ -762,11 +773,29 @@ onVoiceModeChange = { enabled ->
         if (RimeEngine.isInitialized()) {
             val savedSchema = SettingsPreferences.getCurrentSchema(this)
             val currentSchema = rimeEngine.getCurrentSchema()
-            if (savedSchema != currentSchema) {
-                Log.d(TAG, "onStartInput: schema mismatch, saved=$savedSchema, current=$currentSchema")
-                val availableSchemas = rimeEngine.getAvailableSchemas()
-                if (savedSchema in availableSchemas || SchemaManager.isSchemaCompiled(this@XimeInputMethodService, savedSchema)) {
+            val availableSchemas = rimeEngine.getAvailableSchemas()
+            Log.d(TAG, "onStartInput: saved=$savedSchema, current=$currentSchema, available=${availableSchemas.joinToString()}")
+            
+            when {
+                savedSchema in availableSchemas -> {
+                    if (savedSchema != currentSchema) {
+                        Log.d(TAG, "onStartInput: Switching to saved schema: $savedSchema")
+                        rimeEngine.switchSchema(savedSchema)
+                    } else {
+                        // 即使 schema 相同也重新 switch 一下，确保 processor 完全初始化
+                        Log.d(TAG, "onStartInput: Schema already matches, re-switching to init processors")
+                        rimeEngine.switchSchema(savedSchema)
+                    }
+                }
+                SchemaManager.isSchemaCompiled(this@XimeInputMethodService, savedSchema) -> {
+                    Log.d(TAG, "onStartInput: Schema compiled but not in get_schema_list, switching anyway")
                     rimeEngine.switchSchema(savedSchema)
+                }
+                availableSchemas.isNotEmpty() -> {
+                    val fallbackSchema = availableSchemas.first()
+                    Log.d(TAG, "onStartInput: savedSchema '$savedSchema' not available, falling back to '$fallbackSchema'")
+                    rimeEngine.switchSchema(fallbackSchema)
+                    SettingsPreferences.setCurrentSchema(this, fallbackSchema)
                 }
             }
             updateSchemaName()
