@@ -6,6 +6,7 @@ import com.kingzcheung.xime.plugin.ExtensionManager
 import com.kingzcheung.xime.plugin.core.runtime.PluginManager
 import com.kingzcheung.xime.rime.RimeConfigHelper
 import com.kingzcheung.xime.rime.RimeEngine
+import com.kingzcheung.xime.settings.SettingsPreferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -61,7 +62,17 @@ class XimeApplication : Application() {
         applicationScope.launch {
             try {
                 val (userDataDir, sharedDataDir) = RimeConfigHelper.initializeRimeDataAsync(this@XimeApplication)
-                RimeEngine.getInstance().initialize(userDataDir, sharedDataDir)
+                val engine = RimeEngine.getInstance()
+                engine.initialize(userDataDir, sharedDataDir)
+
+                // 首次启动时静默编译词库，避免用户在设置中手动点「部署」
+                if (!SettingsPreferences.isDeploymentDone(this@XimeApplication)) {
+                    Log.d(TAG, "First launch: silently deploying schemas...")
+                    engine.deploy()
+                    SettingsPreferences.setDeploymentDone(this@XimeApplication, true)
+                    Log.d(TAG, "Silent deploy completed")
+                }
+
                 Log.d(TAG, "Rime engine pre-initialization completed")
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to pre-initialize Rime engine", e)
