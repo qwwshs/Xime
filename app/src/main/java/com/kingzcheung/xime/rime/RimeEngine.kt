@@ -85,13 +85,12 @@ class RimeEngine {
         // 编译完成后尝试创建 session
         waited = 0L
         while (waited < timeoutMs) {
+            // 先创建 session（get_schema_list 需要 session 才能读取方案列表）
             if (!nativeHasSession()) {
                 nativeCreateSession()
             }
             if (getAvailableSchemas().isNotEmpty()) {
-                if (waited > 100) {
-                    Log.d(TAG, "ensureSession: schemas ready after ${waited}ms")
-                }
+                Log.d(TAG, "ensureSession: schemas ready after ${waited}ms")
                 return true
             }
             try {

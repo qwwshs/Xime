@@ -40,7 +40,9 @@ object SchemaManager {
         File(getRimeDir(context), CUSTOM_YAML)
 
     fun isSchemaCompiled(context: Context, schemaId: String): Boolean {
-        return File(getBuildDir(context), "$schemaId.prism.bin").exists()
+        val buildDir = getBuildDir(context)
+        return File(buildDir, "$schemaId.prism.bin").exists() ||
+               File(buildDir, "$schemaId.schema.yaml").exists()
     }
 
     fun getReferencedDictName(context: Context, schemaId: String): String? {

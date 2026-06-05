@@ -280,27 +280,7 @@ public:
         
         LOGI("switchSchema: switching to '%s'", schema_id);
         
-        // 使用 set_schema_option 来切换方案
-        // 首先获取当前方案列表确认方案存在
-        RimeSchemaList schema_list = {0};
-        bool schema_exists = false;
-        if (rime->get_schema_list(&schema_list)) {
-            for (size_t i = 0; i < schema_list.size; i++) {
-                if (strcmp(schema_list.list[i].schema_id, schema_id) == 0) {
-                    schema_exists = true;
-                    LOGI("Found schema: %s (%s)", schema_list.list[i].schema_id, schema_list.list[i].name);
-                    break;
-                }
-            }
-            rime->free_schema_list(&schema_list);
-        }
-        
-        if (!schema_exists) {
-            LOGE("Schema '%s' not found in schema list", schema_id);
-            return false;
-        }
-        
-        // 使用 select_schema 来切换方案
+        // 直接切换方案，不验证方案是否存在（get_schema_list 不读 default.custom.yaml 的 patch）
         bool result = rime->select_schema(session_id_, schema_id);
         LOGI("select_schema result: %s", result ? "true" : "false");
         
@@ -760,10 +740,12 @@ Java_com_kingzcheung_xime_rime_RimeEngine_nativeGetAvailableSchemas(
     Rime::Instance().getAvailableSchemas(schemas);
     
     jclass stringClass = env->FindClass("java/lang/String");
+    if (!stringClass) return nullptr;
+    
     jobjectArray result = env->NewObjectArray(schemas.size(), stringClass, nullptr);
+    if (!result) return nullptr;
     
     for (size_t i = 0; i < schemas.size(); ++i) {
-        // 返回方案ID
         jstring str = env->NewStringUTF(schemas[i].first.c_str());
         env->SetObjectArrayElement(result, i, str);
         env->DeleteLocalRef(str);
