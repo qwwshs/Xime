@@ -78,8 +78,15 @@ fun SchemaMarketContent(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { viewModel.loadSchemes() }) {
-                        Icon(Icons.Default.Refresh, contentDescription = "刷新")
+                    IconButton(
+                        onClick = { viewModel.loadSchemes(manual = true) },
+                        enabled = !uiState.isLoading,
+                    ) {
+                        if (uiState.isLoading) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        } else {
+                            Icon(Icons.Default.Refresh, contentDescription = "刷新")
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -147,7 +154,8 @@ fun SchemaMarketContent(
                     item {
                         Spacer(Modifier.height(8.dp))
                         Text(
-                            "共 ${uiState.filteredSchemes.size} 个方案（来自 Xime 官方源）",
+                            "共 ${uiState.filteredSchemes.size} 个方案" +
+                                if (uiState.source.isNotBlank()) "（来源：${uiState.source}）" else "（来自 Xime 官方源）",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.outline,
                             modifier = Modifier.padding(bottom = 16.dp),

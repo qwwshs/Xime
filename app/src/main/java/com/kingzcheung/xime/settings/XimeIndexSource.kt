@@ -19,6 +19,12 @@ data class InstallResult(
     val failureReason: String? = null,
 )
 
+/** 方案列表拉取结果（含命中的来源主机名，供 UI 显示「从哪个端点拉的」）。 */
+data class SchemesFetch(
+    val schemes: List<MarketSchemeItem>,
+    val source: String,
+)
+
 /**
  * 方案市场数据源：读取 ximeiorg/xime-index 精选索引（根→子→逐方案，CDN 优先 + raw 回退），
  * 并按版本 sha256 安装；安装后用 [RimeDependencyResolver] 按索引声明的 dependencies 补齐编译依赖。
@@ -47,35 +53,66 @@ object XimeIndexSource {
         .followRedirects(true)
         .build()
 
-    /** 按镜像优先级取一个 repo 相对路径的文本；首个 2xx 即返回，全失败返回 null。 */
-    private fun fetchText(repoPath: String): String? {
+    /** 取文本的结果：成功带命中来源 [base]+[text]；失败时 [error] 记录最后一个源的可读原因。 */
+    private data class TextFetch(val base: String? = null, val text: String? = null, val error: String? = null)
+
+    /** 按镜像优先级取一个 repo 相对路径的文本；首个 2xx 即返回，全失败返回带原因的结果。 */
+    private fun fetchTextWithSource(repoPath: String): TextFetch {
+        var lastError = "网络不可用"
         for (base in MIRRORS) {
+            val host = hostOf(base)
             try {
                 client.newCall(Request.Builder().url(base + repoPath).build()).execute().use { resp ->
                     if (resp.isSuccessful) {
                         val s = resp.body?.string()
-                        if (!s.isNullOrBlank()) return s
+                        if (!s.isNullOrBlank()) return TextFetch(base = base, text = s)
+                        lastError = "$host 返回空内容"
+                    } else {
+                        lastError = "$host HTTP ${resp.code}"
                     }
                 }
             } catch (e: Exception) {
+                lastError = "$host ${friendlyCause(e)}"
                 Log.w(TAG, "fetch $base$repoPath failed: ${e.message}")
             }
         }
-        return null
+        return TextFetch(error = lastError)
     }
 
+    private fun fetchText(repoPath: String): String? = fetchTextWithSource(repoPath).text
+
+    /** 把网络异常转成可读原因（超时 / 无法解析域名 / 无法连接…），免得给用户抛英文堆栈。 */
+    private fun friendlyCause(e: Throwable): String = when (e) {
+        is java.net.UnknownHostException -> "无法解析域名(网络不可用?)"
+        is java.net.SocketTimeoutException -> "连接超时"
+        is java.net.ConnectException -> "无法连接"
+        is javax.net.ssl.SSLException -> "SSL 错误"
+        else -> e.message ?: e.javaClass.simpleName
+    }
+
+    /** 镜像 base → 展示用主机名（如 index.ximei.me / fastly.jsdelivr.net）。 */
+    private fun hostOf(base: String): String =
+        base.substringAfter("://").substringBefore("/")
+
     /** 跟随索引跳转：根 → 子 → 逐方案（并行、部分失败容忍）。 */
-    suspend fun fetchSchemes(appVersion: String): Result<List<MarketSchemeItem>> =
+    suspend fun fetchSchemes(appVersion: String): Result<SchemesFetch> =
         withContext(Dispatchers.IO) {
             try {
-                val rootText = fetchText("index.yaml")
-                    ?: return@withContext Result.failure(IOException("根索引获取失败"))
+                val rootFetch = fetchTextWithSource("index.yaml")
+                val rootText = rootFetch.text
+                    ?: return@withContext Result.failure(
+                        IOException("无法连接到方案市场，请检查网络"),
+                    )
+                val source = hostOf(rootFetch.base!!)
                 val root = XimeIndexParser.parseIndex(rootText)
                 val subPath = XimeIndexParser.resolveRepoPath(
                     "index.yaml", root.schemas?.from ?: "./rimes/index.yaml",
                 )
-                val subText = fetchText(subPath)
-                    ?: return@withContext Result.failure(IOException("方案子索引获取失败"))
+                val subFetch = fetchTextWithSource(subPath)
+                val subText = subFetch.text
+                    ?: return@withContext Result.failure(
+                        IOException("方案列表加载失败（${subFetch.error}）"),
+                    )
                 val sub = XimeIndexParser.parseSubIndex(subText)
 
                 val schemes = coroutineScope {
@@ -90,7 +127,7 @@ object XimeIndexSource {
                     .distinctBy { it.id }
                     .map { XimeIndexParser.toItem(it, appVersion) }
 
-                Result.success(schemes)
+                Result.success(SchemesFetch(schemes, source))
             } catch (e: Exception) {
                 Log.e(TAG, "fetchSchemes failed", e)
                 Result.failure(e)

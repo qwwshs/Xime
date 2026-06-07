@@ -25,6 +25,8 @@ data class SchemaMarketUiState(
     val errorMessage: String? = null,
     val toastMessage: String? = null,
     val searchQuery: String = "",
+    // 本次方案列表实际命中的来源端点主机名（如 index.ximei.me），用于在界面上显示「从哪个端点拉的」
+    val source: String = "",
 ) {
     val filteredSchemes: List<MarketSchemeItem>
         get() = if (searchQuery.isBlank()) schemes else schemes.filter {
@@ -45,25 +47,50 @@ class SchemaMarketViewModel(application: Application) : AndroidViewModel(applica
         loadSchemes()
     }
 
-    fun loadSchemes() {
+    /** 加载/刷新方案列表。[manual] 为 true 时（用户点刷新）成功也弹 toast 并报告来源端点。 */
+    fun loadSchemes(manual: Boolean = false) {
+        if (_uiState.value.isLoading) return
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             val result = XimeIndexSource.fetchSchemes(BuildConfig.VERSION_NAME)
             // 「已安装」用持久记录(市场主动安装过的 id)，不靠本地文件存在性
             // —— 方案可能仅作为依赖落盘，文件存在 ≠ 用户装过它。
             val installedRecord = SettingsPreferences.getInstalledMarketIds(context)
-            result.onSuccess { list ->
-                _uiState.update {
-                    it.copy(
-                        schemes = list,
-                        isLoading = false,
-                        installedIds = list.map { item -> item.scheme.id }
-                            .filter { id -> id in installedRecord }.toSet(),
-                    )
+            result.onSuccess { fetch ->
+                if (fetch.schemes.isEmpty()) {
+                    // 索引可达但没取到任何方案：当作软失败处理，不要用空列表覆盖已有数据
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            source = fetch.source,
+                            errorMessage = if (it.schemes.isEmpty())
+                                "未获取到方案（来源：${fetch.source}），请检查网络后刷新" else it.errorMessage,
+                            toastMessage = if (it.schemes.isEmpty()) "未获取到方案（来源：${fetch.source}）"
+                                else "刷新未获取到方案，已保留当前列表",
+                        )
+                    }
+                } else {
+                    _uiState.update {
+                        it.copy(
+                            schemes = fetch.schemes,
+                            isLoading = false,
+                            source = fetch.source,
+                            errorMessage = null,
+                            installedIds = fetch.schemes.map { item -> item.scheme.id }
+                                .filter { id -> id in installedRecord }.toSet(),
+                            toastMessage = if (manual) "已刷新 · 来源：${fetch.source}" else it.toastMessage,
+                        )
+                    }
                 }
             }.onFailure { e ->
+                val msg = e.message ?: "加载方案市场失败"
+                // 失败一律弹 toast；已有列表时还保留旧数据，空列表时另外保留整页错误+重试
                 _uiState.update {
-                    it.copy(isLoading = false, errorMessage = e.message ?: "加载方案市场失败")
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = if (it.schemes.isEmpty()) msg else it.errorMessage,
+                        toastMessage = if (it.schemes.isEmpty()) msg else "刷新失败：$msg",
+                    )
                 }
             }
         }
