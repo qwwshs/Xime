@@ -43,6 +43,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.abs
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
@@ -79,6 +80,7 @@ fun KeyButton(
     onPress: (() -> Unit)? = null
 ) {
     var isPressed by remember { mutableStateOf(false) }
+    var dragOffsetX by remember { mutableStateOf(0f) }
     var dragOffsetY by remember { mutableStateOf(0f) }
     var hasTriggeredSwipeUp by remember { mutableStateOf(false) }
     var hasTriggeredSwipeDown by remember { mutableStateOf(false) }
@@ -86,8 +88,8 @@ fun KeyButton(
     var isSwipeDown by remember { mutableStateOf(false) }
     
     val density = LocalDensity.current
-    val swipeUpThreshold = with(density) { (-15).dp.toPx() }
-    val swipeDownThreshold = with(density) { 15.dp.toPx() }
+    val swipeUpThreshold = with(density) { (-30).dp.toPx() }
+    val swipeDownThreshold = with(density) { 30.dp.toPx() }
     val bubbleShowThresholdUp = swipeUpThreshold * 0.3f
     val bubbleShowThresholdDown = swipeDownThreshold * 0.3f
     
@@ -115,6 +117,7 @@ fun KeyButton(
                 detectDragGestures(
                     onDragStart = {
                         isPressed = true
+                        dragOffsetX = 0f
                         dragOffsetY = 0f
                         hasTriggeredSwipeUp = false
                         hasTriggeredSwipeDown = false
@@ -124,10 +127,11 @@ fun KeyButton(
                         onPress?.invoke()
                     },
                     onDragEnd = {
-                        if (!hasTriggeredSwipeUp && !hasTriggeredSwipeDown && dragOffsetY > swipeUpThreshold && dragOffsetY < swipeDownThreshold) {
+                        if (!hasTriggeredSwipeUp && !hasTriggeredSwipeDown && abs(dragOffsetX) < 5.dp.toPx() && dragOffsetY > swipeUpThreshold && dragOffsetY < swipeDownThreshold) {
                             onClick()
                         }
                         isPressed = false
+                        dragOffsetX = 0f
                         dragOffsetY = 0f
                         hasTriggeredSwipeUp = false
                         hasTriggeredSwipeDown = false
@@ -137,6 +141,7 @@ fun KeyButton(
                     },
                     onDragCancel = {
                         isPressed = false
+                        dragOffsetX = 0f
                         dragOffsetY = 0f
                         hasTriggeredSwipeUp = false
                         hasTriggeredSwipeDown = false
@@ -145,31 +150,38 @@ fun KeyButton(
                         onSwipeStateChange?.invoke(SwipeState(false, null, false))
                     },
                     onDrag = { change, dragAmount ->
+                        dragOffsetX += dragAmount.x
                         dragOffsetY += dragAmount.y
                         
                         if (dragOffsetY < 0) {
-                            val shouldShowBubble = dragOffsetY < bubbleShowThresholdUp && swipeText != null
-                            if (shouldShowBubble != isSwiping) {
-                                isSwiping = shouldShowBubble
-                                isSwipeDown = false
-                                onSwipeStateChange?.invoke(SwipeState(shouldShowBubble, swipeText, false))
-                            }
-                            
-                            if (dragOffsetY < swipeUpThreshold && !hasTriggeredSwipeUp && swipeText != null && onSwipe != null) {
-                                hasTriggeredSwipeUp = true
-                                onSwipe(swipeText)
+                            // 需要垂直远大于水平才触发上滑
+                            if (abs(dragOffsetY) > abs(dragOffsetX) * 2f) {
+                                val shouldShowBubble = dragOffsetY < bubbleShowThresholdUp && swipeText != null
+                                if (shouldShowBubble != isSwiping) {
+                                    isSwiping = shouldShowBubble
+                                    isSwipeDown = false
+                                    onSwipeStateChange?.invoke(SwipeState(shouldShowBubble, swipeText, false))
+                                }
+                                
+                                if (dragOffsetY < swipeUpThreshold && !hasTriggeredSwipeUp && swipeText != null && onSwipe != null) {
+                                    hasTriggeredSwipeUp = true
+                                    onSwipe(swipeText)
+                                }
                             }
                         } else if (dragOffsetY > 0) {
-                            val shouldShowBubble = dragOffsetY > bubbleShowThresholdDown && swipeDownText != null
-                            if (shouldShowBubble != isSwipeDown) {
-                                isSwipeDown = shouldShowBubble
-                                isSwiping = shouldShowBubble
-                                onSwipeStateChange?.invoke(SwipeState(shouldShowBubble, swipeDownText, true))
-                            }
-                            
-                            if (dragOffsetY > swipeDownThreshold && !hasTriggeredSwipeDown && swipeDownText != null && onSwipeDown != null) {
-                                hasTriggeredSwipeDown = true
-                                onSwipeDown(swipeDownText)
+                            // 需要垂直远大于水平才触发下滑
+                            if (dragOffsetY > abs(dragOffsetX) * 2f) {
+                                val shouldShowBubble = dragOffsetY > bubbleShowThresholdDown && swipeDownText != null
+                                if (shouldShowBubble != isSwipeDown) {
+                                    isSwipeDown = shouldShowBubble
+                                    isSwiping = shouldShowBubble
+                                    onSwipeStateChange?.invoke(SwipeState(shouldShowBubble, swipeDownText, true))
+                                }
+                                
+                                if (dragOffsetY > swipeDownThreshold && !hasTriggeredSwipeDown && swipeDownText != null && onSwipeDown != null) {
+                                    hasTriggeredSwipeDown = true
+                                    onSwipeDown(swipeDownText)
+                                }
                             }
                         }
                     }
@@ -223,7 +235,7 @@ fun SwipeableKeyButton(
     isHighlighted: Boolean = false,
     swipeText: String? = null,
     swipeDownText: String? = null,
-    /** 下滑文本显示在按键上（气泡为空，用于 display:key） */
+    /** 下滑文本显示在按键上（气泡为空，用于 display:key�?*/
     swipeDownKeyLabel: String? = null,
     onSwipe: ((String) -> Unit)? = null,
     onSwipeDown: ((String) -> Unit)? = null,
@@ -238,6 +250,7 @@ fun SwipeableKeyButton(
     var dragOffsetY by remember { mutableStateOf(0f) }
     var hasTriggeredSwipeUp by remember { mutableStateOf(false) }
     var hasTriggeredSwipeDown by remember { mutableStateOf(false) }
+    var dragOffsetX by remember { mutableStateOf(0f) }
     var isSwiping by remember { mutableStateOf(false) }
     var isSwipeDown by remember { mutableStateOf(false) }
     var buttonBounds by remember { mutableStateOf(Rect(0f, 0f, 0f, 0f)) }
@@ -256,8 +269,8 @@ fun SwipeableKeyButton(
     val view = LocalView.current
     
     val density = LocalDensity.current
-    val swipeUpThreshold = with(density) { (-15).dp.toPx() }
-    val swipeDownThreshold = with(density) { 15.dp.toPx() }
+    val swipeUpThreshold = with(density) { (-30).dp.toPx() }
+    val swipeDownThreshold = with(density) { 30.dp.toPx() }
     val bubbleShowThresholdUp = swipeUpThreshold * 0.3f
     val bubbleShowThresholdDown = swipeDownThreshold * 0.3f
     
@@ -278,6 +291,7 @@ fun SwipeableKeyButton(
                 detectDragGestures(
                     onDragStart = {
                         isPressed = true
+                        dragOffsetX = 0f
                         dragOffsetY = 0f
                         hasTriggeredSwipeUp = false
                         hasTriggeredSwipeDown = false
@@ -287,10 +301,11 @@ fun SwipeableKeyButton(
                         currentOnPress?.invoke()
                     },
                     onDragEnd = {
-                        if (!hasTriggeredSwipeUp && !hasTriggeredSwipeDown && dragOffsetY > swipeUpThreshold && dragOffsetY < swipeDownThreshold) {
+                        if (!hasTriggeredSwipeUp && !hasTriggeredSwipeDown && abs(dragOffsetX) < 5.dp.toPx() && dragOffsetY > swipeUpThreshold && dragOffsetY < swipeDownThreshold) {
                             currentOnClick?.invoke()
                         }
                         isPressed = false
+                        dragOffsetX = 0f
                         dragOffsetY = 0f
                         hasTriggeredSwipeUp = false
                         hasTriggeredSwipeDown = false
@@ -300,6 +315,7 @@ fun SwipeableKeyButton(
                     },
                     onDragCancel = {
                         isPressed = false
+                        dragOffsetX = 0f
                         dragOffsetY = 0f
                         hasTriggeredSwipeUp = false
                         hasTriggeredSwipeDown = false
@@ -308,35 +324,42 @@ fun SwipeableKeyButton(
                         currentOnSwipeStateChange?.invoke(SwipeState(false, null, false, emptyList(), false, null), buttonBounds)
                     },
                     onDrag = { change, dragAmount ->
+                        dragOffsetX += dragAmount.x
                         dragOffsetY += dragAmount.y
                         
                         if (dragOffsetY < 0) {
-                            val shouldShowBubble = dragOffsetY < bubbleShowThresholdUp && currentSwipeText != null
-                            if (shouldShowBubble != isSwiping) {
-                                isSwiping = shouldShowBubble
-                                isSwipeDown = false
-                                currentOnSwipeStateChange?.invoke(SwipeState(shouldShowBubble, currentSwipeText, false, emptyList(), false, null), buttonBounds)
-                            }
-                            
-                            val swipeTextValue = currentSwipeText
-                            val onSwipeValue = currentOnSwipe
-                            if (dragOffsetY < swipeUpThreshold && !hasTriggeredSwipeUp && swipeTextValue != null && onSwipeValue != null) {
-                                hasTriggeredSwipeUp = true
-                                onSwipeValue(swipeTextValue)
+                            // 需要垂直远大于水平才触发上滑
+                            if (abs(dragOffsetY) > abs(dragOffsetX) * 2f) {
+                                val shouldShowBubble = dragOffsetY < bubbleShowThresholdUp && currentSwipeText != null
+                                if (shouldShowBubble != isSwiping) {
+                                    isSwiping = shouldShowBubble
+                                    isSwipeDown = false
+                                    currentOnSwipeStateChange?.invoke(SwipeState(shouldShowBubble, currentSwipeText, false, emptyList(), false, null), buttonBounds)
+                                }
+                                
+                                val swipeTextValue = currentSwipeText
+                                val onSwipeValue = currentOnSwipe
+                                if (dragOffsetY < swipeUpThreshold && !hasTriggeredSwipeUp && swipeTextValue != null && onSwipeValue != null) {
+                                    hasTriggeredSwipeUp = true
+                                    onSwipeValue(swipeTextValue)
+                                }
                             }
                         } else if (dragOffsetY > 0) {
-                            val shouldShowBubble = dragOffsetY > bubbleShowThresholdDown && currentSwipeDownText != null
-                            if (shouldShowBubble != isSwipeDown) {
-                                isSwipeDown = shouldShowBubble
-                                isSwiping = shouldShowBubble
-                                currentOnSwipeStateChange?.invoke(SwipeState(shouldShowBubble, currentSwipeDownText, true, emptyList(), false, null), buttonBounds)
-                            }
-                            
-                            val swipeDownTextValue = currentSwipeDownText
-                            val onSwipeDownValue = currentOnSwipeDown
-                            if (dragOffsetY > swipeDownThreshold && !hasTriggeredSwipeDown && swipeDownTextValue != null && onSwipeDownValue != null) {
-                                hasTriggeredSwipeDown = true
-                                onSwipeDownValue(swipeDownTextValue)
+                            // 需要垂直远大于水平才触发下滑
+                            if (dragOffsetY > abs(dragOffsetX) * 2f) {
+                                val shouldShowBubble = dragOffsetY > bubbleShowThresholdDown && currentSwipeDownText != null
+                                if (shouldShowBubble != isSwipeDown) {
+                                    isSwipeDown = shouldShowBubble
+                                    isSwiping = shouldShowBubble
+                                    currentOnSwipeStateChange?.invoke(SwipeState(shouldShowBubble, currentSwipeDownText, true, emptyList(), false, null), buttonBounds)
+                                }
+                                
+                                val swipeDownTextValue = currentSwipeDownText
+                                val onSwipeDownValue = currentOnSwipeDown
+                                if (dragOffsetY > swipeDownThreshold && !hasTriggeredSwipeDown && swipeDownTextValue != null && onSwipeDownValue != null) {
+                                    hasTriggeredSwipeDown = true
+                                    onSwipeDownValue(swipeDownTextValue)
+                                }
                             }
                         }
                     }
@@ -344,7 +367,7 @@ fun SwipeableKeyButton(
             }
             .pointerInput(currentLongPressItems) {
                 if (currentLongPressItems.isNullOrEmpty()) {
-                    // 无长按选项时使用简单点击检测
+                    // 无长按选项时使用简单点击检�?
                     detectTapGestures(
                         onPress = {
                             isPressed = true
@@ -390,7 +413,7 @@ fun SwipeableKeyButton(
                         )
                     }
                     
-                    val swipeThresholdPx = with(density) { 15.dp.toPx() }
+                    val cancelThresholdPx = with(density) { 5.dp.toPx() }
                     val downY = down.position.y
                     var swipeDetected = false
                     
@@ -403,10 +426,11 @@ fun SwipeableKeyButton(
                             
                             if (change.isConsumed) continue
                             
-                            // 长按触发前检测到垂直滑动则取消长按
+                            // 长按触发前检测到任何方向滑动则取消长�?
                             if (!localLongPressTriggered) {
+                                val deltaX = change.position.x - downX
                                 val deltaY = change.position.y - downY
-                                if (kotlin.math.abs(deltaY) > swipeThresholdPx) {
+                                if (kotlin.math.abs(deltaX) > cancelThresholdPx || kotlin.math.abs(deltaY) > cancelThresholdPx) {
                                     swipeDetected = true
                                     longPressJob.cancel()
                                 }
@@ -437,13 +461,13 @@ fun SwipeableKeyButton(
                             if (event.type == androidx.compose.ui.input.pointer.PointerEventType.Release) {
                                 completed = true
                                 if (localLongPressTriggered) {
-                                    // 长按选择后抬起 → 上屏选中项
+                                    // 长按选择后抬�?�?上屏选中�?
                                     val selected = items.getOrNull(selectedIdx)
                                     if (selected != null) {
                                         currentOnLongPressSelect?.invoke(selected)
                                     }
                                 } else if (!swipeDetected) {
-                                    // 长按未触发且非滑动 → 普通点击
+                                    // 长按未触发且非滑�?�?普通点�?
                                     currentOnClick?.invoke()
                                 }
                             }
@@ -479,7 +503,7 @@ fun SwipeableKeyButton(
         }
         
         if (!swipeDownKeyLabel.isNullOrEmpty()) {
-            // display:key 时 label 最多显示 2 个字
+            // display:key �?label 最多显�?2 个字
             val displayText = if (swipeDownKeyLabel.length <= 2) swipeDownKeyLabel else swipeDownKeyLabel.take(2)
             Text(
                 text = displayText,
@@ -628,13 +652,13 @@ fun SwipeableIconKeyButton(
     var buttonBounds by remember { mutableStateOf(Rect(0f, 0f, 0f, 0f)) }
     
     val density = LocalDensity.current
-    val swipeUpThreshold = with(density) { (-15).dp.toPx() }
-    val swipeDownThreshold = with(density) { 15.dp.toPx() }
+    val swipeUpThreshold = with(density) { (-30).dp.toPx() }
+    val swipeDownThreshold = with(density) { 30.dp.toPx() }
     val swipeLeftThreshold = with(density) { (-24).dp.toPx() }
     val bubbleShowThresholdUp = swipeUpThreshold * 0.3f
     val bubbleShowThresholdDown = swipeDownThreshold * 0.3f
     
-    // 上滑清空/下滑撤回需要更大的滑动距离，防止误触
+    // 上滑清空/下滑撤回需要更大的滑动距离，防止误�?
     val clearActionThreshold = with(density) { (-30).dp.toPx() }
     val undoActionThreshold = with(density) { 30.dp.toPx() }
     
@@ -710,7 +734,7 @@ fun SwipeableIconKeyButton(
                         onPress?.invoke()
                     },
                     onDragEnd = {
-                        // 手指抬起时才执行，给用户反悔的机会
+                        // 手指抬起时才执行，给用户反悔的机�?
                         if (hasReachedClearThreshold && onSwipeUp != null) {
                             onSwipeUp()
                         } else if (hasReachedUndoThreshold && onSwipeDown != null) {

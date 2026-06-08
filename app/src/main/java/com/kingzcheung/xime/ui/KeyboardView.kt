@@ -33,12 +33,14 @@ import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerEvent
 import androidx.compose.ui.input.pointer.pointerInput
+import kotlin.math.abs
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -223,28 +225,55 @@ fun KeyboardView(
                 }
 
                 else -> {
-                    val cursorMod = if (!isComposing && inputText.isEmpty() && onCursorMove != null)
+                    // 全局左右滑动控制光标
+                    // 按键手势只使用垂直（上滑/下滑）和静止（长按），左右滑动没有用到
+                    // 所以根据方向判定：水平 > 垂直就消费事件（按键收不到），垂直 > 水平则让按键处理
+                    val currentOnCursorMove = rememberUpdatedState(onCursorMove)
+                    val cursorMod = if (onCursorMove != null) {
                         Modifier.pointerInput(Unit) {
+                            val cursorThresholdPx = 25.dp.toPx()
                             awaitEachGesture {
                                 val down = awaitFirstDown(requireUnconsumed = false)
-                                var totalDrag = 0f
-                                var lastPosition = down.position
+                                var isCursorGesture = false
+                                var lastSteps = 0
+
                                 do {
-                                    val event = awaitPointerEvent(PointerEventPass.Initial)
-                                    val change = event.changes.firstOrNull() ?: break
-                                    if (!change.pressed) break
-                                    val dx = change.position.x - lastPosition.x
-                                    totalDrag += dx
-                                    lastPosition = change.position
-                                    // 每超过阈值就触发一次光标移动并重置累计距离
-                                    while (kotlin.math.abs(totalDrag) > 50f) {
-                                        change.consume()
-                                        onCursorMove(if (totalDrag > 0f) 1 else -1)
-                                        totalDrag = if (totalDrag > 0f) totalDrag - 50f else totalDrag + 50f
+                                    val event = awaitPointerEvent()
+                                    val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                                    val dx = change.position.x - down.position.x
+                                    val dy = change.position.y - down.position.y
+
+                                    if (!change.pressed) {
+                                        if (isCursorGesture) {
+                                            event.changes.forEach { it.consume() }
+                                        }
+                                        break
                                     }
+
+                                    // 方向优先：水平 > 垂直 × 2 → 立即消费，按键手势不再收到事件
+                                    // 这样就不会累积垂直位移误触上滑/下滑
+                                    if (abs(dx) > abs(dy) * 2f) {
+                                        event.changes.forEach { it.consume() }
+
+                                        // 水平距离足够时触发光标移动
+                                        if (abs(dx) > cursorThresholdPx) {
+                                            isCursorGesture = true
+                                            val steps = (dx / cursorThresholdPx).toInt()
+                                            if (steps != lastSteps) {
+                                                val delta = steps - lastSteps
+                                                currentOnCursorMove.value?.invoke(delta)
+                                                lastSteps = steps
+                                            }
+                                        }
+                                    }
+                                    // 垂直 > 水平：不消费，让按键手势正常处理上滑/下滑
                                 } while (true)
                             }
-                        } else Modifier
+                        }
+                    } else {
+                        Modifier
+                    }
+
                     when (keyboardMode) {
                         KeyboardMode.FULL -> {
                             val configuration = LocalConfiguration.current
@@ -332,7 +361,7 @@ fun KeyboardView(
                                 keyTextColor = keyTextColor,
                                 specialKeyBackgroundColor = specialKeyBgColor,
                                 keyboardBackgroundColor = keyboardBgColor,
-                                modifier = Modifier.weight(1f),
+                                modifier = Modifier.weight(1f).then(cursorMod),
                                 onKeyPressDown = onKeyPressDown
                             )
                         }
