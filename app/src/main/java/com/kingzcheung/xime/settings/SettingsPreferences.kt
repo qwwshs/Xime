@@ -56,7 +56,9 @@ object SettingsPreferences {
     private const val KEY_WEBDAV_PATH = "webdav_path"
 
     private const val KEY_SCHEMA_IMPORT_WARNING_DISMISSED = "schema_import_warning_dismissed"
-    
+
+    private const val KEY_INSTALLED_MARKET_IDS = "installed_market_ids"
+
     private fun getPrefs(context: Context): SharedPreferences {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     }
@@ -310,5 +312,25 @@ object SettingsPreferences {
 
     fun setSchemaImportWarningDismissed(context: Context, dismissed: Boolean) {
         getPrefs(context).edit().putBoolean(KEY_SCHEMA_IMPORT_WARNING_DISMISSED, dismissed).apply()
+    }
+
+    // ── 方案市场「已安装」的持久记录 ──
+    // 记录用户通过市场主动安装过的方案 id；与本地文件存在性解耦（方案可能仅作为依赖落盘，
+    // 文件存在不代表用户装过它），且跨重启保持。
+    fun getInstalledMarketIds(context: Context): Set<String> =
+        getPrefs(context).getStringSet(KEY_INSTALLED_MARKET_IDS, emptySet())?.toSet() ?: emptySet()
+
+    fun addInstalledMarketId(context: Context, id: String) {
+        val cur = getInstalledMarketIds(context).toMutableSet()
+        if (cur.add(id)) {
+            getPrefs(context).edit().putStringSet(KEY_INSTALLED_MARKET_IDS, cur).apply()
+        }
+    }
+
+    fun removeInstalledMarketId(context: Context, id: String) {
+        val cur = getInstalledMarketIds(context).toMutableSet()
+        if (cur.remove(id)) {
+            getPrefs(context).edit().putStringSet(KEY_INSTALLED_MARKET_IDS, cur).apply()
+        }
     }
 }

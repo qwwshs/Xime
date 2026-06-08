@@ -26,6 +26,8 @@ object RimeConfigHelper {
         
         copyAssetsToRimeDir(context, rimeDir)
         stripLuaTranslatorFromSchemas(rimeDir)
+        // F1: assets 会用内置 default.yaml 覆盖，这里把启用方案重新写回 schema_list
+        SchemaManager.applyEnabledSchemasToDefaultYaml(context)
         
         Log.d(TAG, "Checking for missing schema files...")
         try {
@@ -55,6 +57,8 @@ object RimeConfigHelper {
         }
         
         copyAssetsToRimeDir(context, rimeDir)
+        // F1: 同步初始化路径也写回 default.yaml 的 schema_list
+        SchemaManager.applyEnabledSchemasToDefaultYaml(context)
         checkAndCleanBuildDir(rimeDir)
         listFilesRecursively(rimeDir, TAG)
         

@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Computer
@@ -29,6 +30,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -64,6 +66,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.kingzcheung.xime.settings.SchemaManager
@@ -74,11 +78,14 @@ import com.kingzcheung.xime.viewmodel.SchemaSettingsViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SchemaSettingsContent(
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onNavigateToMarket: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val viewModel: SchemaSettingsViewModel = viewModel()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    // F6: 从方案市场/导入返回时自动重扫描，新装方案立即出现
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.refresh() }
     var showMenu by remember { mutableStateOf(false) }
     var showWirelessSheet by remember { mutableStateOf(false) }
     var showUrlDialog by remember { mutableStateOf(false) }
@@ -301,6 +308,22 @@ fun SchemaSettingsContent(
                             shape = RoundedCornerShape(12.dp)
                         ) {
                             DropdownMenuItem(
+                                text = { Text("方案市场") },
+                                onClick = {
+                                    showMenu = false
+                                    onNavigateToMarket()
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Default.Storefront, null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp))
+                                }
+                            )
+                            HorizontalDivider(
+                                modifier = Modifier.padding(horizontal = 12.dp),
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                            )
+                            DropdownMenuItem(
                                 text = { Text("浏览器导入") },
                                 onClick = {
                                     showMenu = false
@@ -323,10 +346,6 @@ fun SchemaSettingsContent(
                                         tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(20.dp))
                                 }
-                            )
-                            HorizontalDivider(
-                                modifier = Modifier.padding(horizontal = 12.dp),
-                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                             )
                             DropdownMenuItem(
                                 text = { Text("从文件选择") },
@@ -454,7 +473,7 @@ fun SchemaSettingsContent(
                 Text("部署方案")
             }
         }
-    }
+        }
     }
 }
 

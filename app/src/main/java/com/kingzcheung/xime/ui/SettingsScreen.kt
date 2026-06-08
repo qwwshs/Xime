@@ -9,6 +9,7 @@ import androidx.navigation.navArgument
 import com.kingzcheung.xime.ui.settings.DictionarySettingsContent
 import com.kingzcheung.xime.ui.settings.KeyEffectSettingsContent
 import com.kingzcheung.xime.ui.settings.PluginSettingsContent
+import com.kingzcheung.xime.ui.settings.SchemaMarketContent
 import com.kingzcheung.xime.ui.settings.SchemaSettingsContent
 import com.kingzcheung.xime.ui.settings.SettingsMainContent
 import com.kingzcheung.xime.ui.settings.SettingsRoutes
@@ -33,6 +34,7 @@ fun SettingsScreen(
         composable(SettingsRoutes.Main) {
             SettingsMainContent(
                 onNavigateToSchema = { navController.navigate(SettingsRoutes.Schema) },
+                onNavigateToSchemaMarket = { navController.navigate(SettingsRoutes.SchemaMarket) },
                 onNavigateToTheme = { navController.navigate(SettingsRoutes.Theme) },
                 onNavigateToKeyEffect = { navController.navigate(SettingsRoutes.KeyEffect) },
                 onNavigateToDictionary = { navController.navigate(SettingsRoutes.Dictionary) },
@@ -54,7 +56,13 @@ fun SettingsScreen(
                         navController.popBackStack()
                     }
                     onWizardBack()
-                }
+                },
+                onNavigateToMarket = { navController.navigate(SettingsRoutes.SchemaMarket) }
+            )
+        }
+        composable(SettingsRoutes.SchemaMarket) {
+            SchemaMarketContent(
+                onBack = { navController.popBackStack() }
             )
         }
         composable(SettingsRoutes.Theme) {

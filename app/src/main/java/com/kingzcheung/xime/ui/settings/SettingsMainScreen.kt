@@ -23,6 +23,7 @@ import androidx.compose.material.icons.twotone.Info
 import androidx.compose.material.icons.twotone.Keyboard
 import androidx.compose.material.icons.twotone.KeyboardAlt
 import androidx.compose.material.icons.twotone.Palette
+import androidx.compose.material.icons.twotone.Storefront
 import androidx.compose.material.icons.twotone.Straighten
 import androidx.compose.material.icons.twotone.ToggleOn
 import androidx.compose.material.icons.twotone.Vibration
@@ -59,6 +60,7 @@ import com.kingzcheung.xime.ui.SettingsToggleItem
 @Composable
 fun SettingsMainContent(
     onNavigateToSchema: () -> Unit,
+    onNavigateToSchemaMarket: () -> Unit = {},
     onNavigateToTheme: () -> Unit,
     onNavigateToKeyEffect: () -> Unit,
     onNavigateToDictionary: () -> Unit,
@@ -179,6 +181,18 @@ fun SettingsMainContent(
                         title = "输入方案",
                         subtitle = "管理输入方案",
                         onClick = onNavigateToSchema,
+                        showArrow = true
+                    )
+                    HorizontalDivider(
+                        modifier = Modifier.padding(start = 56.dp),
+                        thickness = 0.5.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    )
+                    SettingsItem(
+                        icon = Icons.TwoTone.Storefront,
+                        title = "方案市场",
+                        subtitle = "从官方源下载安装输入方案",
+                        onClick = onNavigateToSchemaMarket,
                         showArrow = true
                     )
                     HorizontalDivider(

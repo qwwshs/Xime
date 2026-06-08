@@ -3,6 +3,7 @@ package com.kingzcheung.xime.ui.settings
 object SettingsRoutes {
     const val Main = "main"
     const val Schema = "schema"
+    const val SchemaMarket = "schema_market"
     const val Theme = "theme"
     const val KeyEffect = "key_effect"
     const val Dictionary = "dictionary"

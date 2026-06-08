@@ -36,18 +36,23 @@ class SchemaSettingsViewModel(application: Application) : AndroidViewModel(appli
     }
 
     fun refresh() {
-        val allSchemas = SchemaManager.discoverSchemas(context)
-        val enabledSchemas = SchemaManager.getEnabledSchemas(context)
-        val currentSchema = SettingsPreferences.getCurrentSchema(context)
-
-        val sorted = allSchemas.sortedByDescending { it.schemaId in enabledSchemas }
-
-        _uiState.update {
-            it.copy(
-                allSchemas = sorted,
-                enabledSchemas = enabledSchemas,
-                currentSchema = currentSchema
-            )
+        // 在 IO 线程读盘（discoverSchemas/getEnabledSchemas 扫描文件），避免 ON_RESUME 在主线程卡顿
+        viewModelScope.launch {
+            val (allSchemas, enabledSchemas, currentSchema) = withContext(Dispatchers.IO) {
+                Triple(
+                    SchemaManager.discoverSchemas(context),
+                    SchemaManager.getEnabledSchemas(context),
+                    SettingsPreferences.getCurrentSchema(context),
+                )
+            }
+            val sorted = allSchemas.sortedByDescending { it.schemaId in enabledSchemas }
+            _uiState.update {
+                it.copy(
+                    allSchemas = sorted,
+                    enabledSchemas = enabledSchemas,
+                    currentSchema = currentSchema
+                )
+            }
         }
     }
 
