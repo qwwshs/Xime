@@ -75,7 +75,6 @@ import androidx.compose.ui.unit.TextUnit
 fun KeyboardLayout(
     onKeyPress: (String) -> Unit,
     isShifted: Boolean,
-    isAsciiMode: Boolean = false,
     isLandscape: Boolean = false,
     schemaName: String = "",
     enterKeyText: String = "发送",
@@ -165,7 +164,6 @@ fun KeyboardLayout(
             LandscapeKeyboardContent(
                 onKeyPress = onKeyPress,
                 isShifted = isShifted,
-                isAsciiMode = isAsciiMode,
                 schemaName = schemaName,
                 enterKeyText = enterKeyText,
                 isDarkTheme = isDarkTheme,
@@ -212,7 +210,6 @@ fun KeyboardLayout(
                                 keyBackgroundColor = keyBackgroundColor,
                                 keyTextColor = keyTextColor,
                                 isShifted = isShifted,
-                                isAsciiMode = isAsciiMode,
                                 keyboardBackgroundColor = keyboardBackgroundColor,
                                 onSwipeStateChange = { state, bounds ->
                                     processSwipeState(
@@ -250,7 +247,6 @@ fun KeyboardLayout(
                                 keyBackgroundColor = keyBackgroundColor,
                                 keyTextColor = keyTextColor,
                                 isShifted = isShifted,
-                                isAsciiMode = isAsciiMode,
                                 keyboardBackgroundColor = keyboardBackgroundColor,
                                 modifier = Modifier.padding(horizontal = 16.dp),
                                 onSwipeStateChange = { state, bounds ->
@@ -432,12 +428,12 @@ fun KeyboardLayout(
                             )
 
                             SwipeableKeyButton(
-                                text = if (isAsciiMode) "." else "，",
-                                onClick = { onKeyPress(if (isAsciiMode) "." else "，") },
+                                text = "，",
+                                onClick = { onKeyPress("，") },
                                 backgroundColor = keyBackgroundColor,
                                 textColor = keyTextColor,
                                 modifier = Modifier.weight(0.8f),
-                                swipeText = if (isAsciiMode) "," else "。",
+                                swipeText = "。",
                                 onSwipe = { onSwipeText -> onKeyPress(onSwipeText) },
                                 onSwipeStateChange = { state, bounds ->
                                     processSwipeState(
@@ -445,7 +441,7 @@ fun KeyboardLayout(
                                         bounds
                                     )
                                 },
-                                onPress = { onKeyPressDown?.invoke(if (isAsciiMode) "," else "。") }
+                                onPress = { onKeyPressDown?.invoke("。") }
                             )
                         }
 
@@ -551,7 +547,7 @@ fun KeyboardLayout(
                                 )
                             } else {
                                 Text(
-                                    text = if (isAsciiMode) "英文" else schemaName,
+                                    text = schemaName,
                                     color = keyTextColor,
                                     fontSize = 14.sp,
                                     fontWeight = androidx.compose.ui.text.font.FontWeight.Normal,
@@ -597,7 +593,7 @@ fun KeyboardLayout(
                             )
                         } else {
                             KeyButton(
-                                text = if (isAsciiMode) "英" else "中",
+                                text = "中",
                                 onClick = { onKeyPress("ime_switch") },
                                 backgroundColor = specialKeyBackgroundColor,
                                 textColor = keyTextColor,
@@ -723,7 +719,6 @@ fun KeyboardRowWithConfig(
     keyBackgroundColor: Color,
     keyTextColor: Color,
     isShifted: Boolean,
-    isAsciiMode: Boolean,
     keyboardBackgroundColor: Color = Color.Transparent,
     modifier: Modifier = Modifier,
     onSwipeStateChange: ((SwipeState, Rect) -> Unit)? = null,
@@ -818,7 +813,6 @@ fun KeyboardRowWithConfig(
 private fun LandscapeKeyboardContent(
     onKeyPress: (String) -> Unit,
     isShifted: Boolean,
-    isAsciiMode: Boolean,
     schemaName: String,
     enterKeyText: String,
     isDarkTheme: Boolean,
@@ -857,7 +851,6 @@ private fun LandscapeKeyboardContent(
                     keyBackgroundColor = keyBackgroundColor,
                     keyTextColor = keyTextColor,
                     isShifted = isShifted,
-                    isAsciiMode = isAsciiMode,
                     keyboardBackgroundColor = keyboardBackgroundColor,
                     fontSize = landscapeFontSize,
                     swipeFontSize = landscapeSwipeFontSize,
@@ -880,7 +873,6 @@ private fun LandscapeKeyboardContent(
                     keyBackgroundColor = keyBackgroundColor,
                     keyTextColor = keyTextColor,
                     isShifted = isShifted,
-                    isAsciiMode = isAsciiMode,
                     keyboardBackgroundColor = keyboardBackgroundColor,
                     fontSize = landscapeFontSize,
                     swipeFontSize = landscapeSwipeFontSize,
@@ -903,7 +895,6 @@ private fun LandscapeKeyboardContent(
                     keyBackgroundColor = keyBackgroundColor,
                     keyTextColor = keyTextColor,
                     isShifted = isShifted,
-                    isAsciiMode = isAsciiMode,
                     keyboardBackgroundColor = keyboardBackgroundColor,
                     fontSize = landscapeFontSize,
                     swipeFontSize = landscapeSwipeFontSize,
@@ -930,15 +921,15 @@ private fun LandscapeKeyboardContent(
                     onPress = { onKeyPressDown?.invoke("emoji") }
                 )
                 CompactSwipeableKeyButton(
-                    text = if (isAsciiMode) "." else "，",
-                    onClick = { onKeyPress(if (isAsciiMode) "." else "，") },
+                    text = "，",
+                    onClick = { onKeyPress("，") },
                     backgroundColor = keyBackgroundColor,
                     textColor = keyTextColor,
                     modifier = Modifier.weight(0.8f),
-                    swipeText = if (isAsciiMode) "," else "。",
+                    swipeText = "。",
                     swipeFontSize = landscapeSwipeFontSize,
                     onSwipe = { onSwipeText -> onKeyPress(onSwipeText) },
-                    onPress = { onKeyPressDown?.invoke(if (isAsciiMode) "," else "。") }
+                    onPress = { onKeyPressDown?.invoke("。") }
                 )
                 SplitSpaceKey(
                     onClick = { onKeyPress("space") },
@@ -969,7 +960,6 @@ private fun LandscapeKeyboardContent(
                     keyBackgroundColor = keyBackgroundColor,
                     keyTextColor = keyTextColor,
                     isShifted = isShifted,
-                    isAsciiMode = isAsciiMode,
                     keyboardBackgroundColor = keyboardBackgroundColor,
                     fontSize = landscapeFontSize,
                     swipeFontSize = landscapeSwipeFontSize,
@@ -992,7 +982,6 @@ private fun LandscapeKeyboardContent(
                     keyBackgroundColor = keyBackgroundColor,
                     keyTextColor = keyTextColor,
                     isShifted = isShifted,
-                    isAsciiMode = isAsciiMode,
                     keyboardBackgroundColor = keyboardBackgroundColor,
                     fontSize = landscapeFontSize,
                     swipeFontSize = landscapeSwipeFontSize,
@@ -1018,7 +1007,6 @@ private fun LandscapeKeyboardContent(
                         keyBackgroundColor = keyBackgroundColor,
                         keyTextColor = keyTextColor,
                         isShifted = isShifted,
-                        isAsciiMode = isAsciiMode,
                         keyboardBackgroundColor = keyboardBackgroundColor,
                         fontSize = landscapeFontSize,
                         swipeFontSize = landscapeSwipeFontSize,
@@ -1073,7 +1061,7 @@ private fun LandscapeKeyboardContent(
                     onPress = { onKeyPressDown?.invoke("mode_change") }
                 )
                 KeyButton(
-                    text = if (isAsciiMode) "英" else "中",
+                    text = "中",
                     onClick = { onKeyPress("ime_switch") },
                     backgroundColor = specialKeyBackgroundColor,
                     textColor = keyTextColor,
@@ -1411,7 +1399,6 @@ fun CompactKeyboardRowWithConfig(
     keyBackgroundColor: Color,
     keyTextColor: Color,
     isShifted: Boolean,
-    isAsciiMode: Boolean,
     keyboardBackgroundColor: Color = Color.Transparent,
     modifier: Modifier = Modifier,
     onKeyPressDown: ((String) -> Unit)? = null,
@@ -1452,7 +1439,7 @@ fun CompactKeyboardRowWithConfig(
             } else null
 
             CompactSwipeableKeyButton(
-                text = if (isShifted || !isAsciiMode) key.uppercase() else key,
+                text = key.uppercase(),
                 onClick = { onKeyPress(key) },
                 backgroundColor = keyBackgroundColor,
                 textColor = keyTextColor,
@@ -1467,7 +1454,7 @@ fun CompactKeyboardRowWithConfig(
                             } else {
                                 onGestureAction?.invoke(
                                     swipeDownAction,
-                                    swipeDownValue?.ifEmpty { swipeDownLabel!! } ?: swipeDownLabel!!)
+                                    swipeDownValue?.ifEmpty { swipeDownLabel } ?: swipeDownLabel!!)
                             }
                         }
                     } else null,

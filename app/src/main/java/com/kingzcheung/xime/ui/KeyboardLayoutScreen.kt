@@ -41,7 +41,6 @@ fun KeyboardLayoutScreen(
             KeyboardLayout(
                 onKeyPress = onKeyPress,
                 isShifted = isShifted,
-                isAsciiMode = isAsciiMode,
                 isLandscape = isLandscape,
                 schemaName = schemaName,
                 enterKeyText = enterKeyText,
