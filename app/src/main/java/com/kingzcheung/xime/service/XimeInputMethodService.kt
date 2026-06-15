@@ -124,7 +124,14 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
     
     init {
         serviceScope.launch {
-            keyJobs.consumeEach { it.join() }
+            keyJobs.consumeEach { job ->
+                val tBeforeJoin = System.nanoTime()
+                job.join()
+                val joinTime = (System.nanoTime() - tBeforeJoin) / 1_000_000
+                if (joinTime > 20) {
+                    FileLogger.d(KEY_PERF, "Channel join took ${joinTime}ms")
+                }
+            }
         }
     }
     
@@ -1620,7 +1627,14 @@ onVoiceModeChange = { enabled ->
      * Ensures no interleaving with key processing.
      */
     private fun postRimeJob(block: suspend CoroutineScope.() -> Unit) {
-        val job = serviceScope.launch(keyProcessingDispatcher, start = CoroutineStart.LAZY, block = block)
+        val job = serviceScope.launch(keyProcessingDispatcher, start = CoroutineStart.LAZY) {
+            val t0 = System.nanoTime()
+            block()
+            val elapsed = (System.nanoTime() - t0) / 1_000_000
+            if (elapsed > 10) {
+                FileLogger.d(KEY_PERF, "postRimeJob: ${elapsed}ms")
+            }
+        }
         keyJobs.trySend(job)
     }
 

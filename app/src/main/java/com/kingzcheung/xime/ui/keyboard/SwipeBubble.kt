@@ -28,7 +28,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
-
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.platform.LocalContext
@@ -82,16 +82,18 @@ private fun buildInvertedConvexPath(
 
         // ── 主体右边 ──
         if (isRightFlush) {
-            // 直角落底 → 直线进 pointer 右边（无圆角）
+            // 直角落底 → 圆弧过渡到 pointer 右边（坐标已对齐，退化为直线）
             lineTo(bodyRight, bodyBottom)
-            lineTo(pointerRight, pointerBottom - pr)
+            quadraticBezierTo(pointerRight, bodyBottom, pointerRight, bodyBottom + pr)
         } else {
             lineTo(bodyRight, bodyBottom - r)
             quadraticBezierTo(bodyRight, bodyBottom, bodyRight - r, bodyBottom)
             lineTo(pointerRight + pr, bodyBottom)
             quadraticBezierTo(pointerRight, bodyBottom, pointerRight, bodyBottom + pr)
-            lineTo(pointerRight, pointerBottom - pr)
         }
+
+        // ── pointer 右边 ──
+        lineTo(pointerRight, pointerBottom - pr)
         quadraticBezierTo(pointerRight, pointerBottom, pointerRight - pr, pointerBottom)
 
         // ── pointer 底边 ──
@@ -102,7 +104,7 @@ private fun buildInvertedConvexPath(
         lineTo(pointerLeft, bodyBottom + pr)
 
         if (isLeftFlush) {
-            // 直角落底 → 直线进主体左边（无圆角）
+            // 直角落底 → 圆弧过渡到 pointer 左边（坐标已对齐，退化为直线）
             lineTo(pointerLeft, bodyBottom)
             lineTo(bodyLeft, bodyBottom)
             lineTo(bodyLeft, r)
@@ -123,11 +125,28 @@ private fun buildInvertedConvexPath(
  * 自定义 Shape，使 Modifier.shadow() 能沿倒"凸"轮廓投射阴影
  */
 private class InvertedConvexShape(
-    private val path: Path
+    private val builder: (Size) -> Path
 ) : Shape {
     override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
-        return Outline.Generic(path)
+        return Outline.Generic(builder(size))
     }
+}
+
+/** 绘制倒"凸"字形气泡 — 每次绘制创建新 Path，避免共享可变 Path 对象 */
+private fun DrawScope.drawInvertedConvexShape(
+    bodyLeft: Float, bodyWidth: Float, bodyHeight: Float,
+    pointerLeft: Float, pointerWidth: Float, pointerHeight: Float,
+    cornerRadius: Float, color: Color,
+    isLeftFlush: Boolean = false,
+    isRightFlush: Boolean = false
+) {
+    val path = buildInvertedConvexPath(
+        bodyLeft, bodyWidth, bodyHeight,
+        pointerLeft, pointerWidth, pointerHeight,
+        cornerRadius,
+        isLeftFlush, isRightFlush
+    )
+    drawPath(path, color)
 }
 
 @Composable
@@ -199,27 +218,42 @@ fun SwipeBubble(
     val boxRight = maxOf(bodyRight, pointerRight)
     val boxWidth = boxRight - boxLeft
     val boxTop = keyBounds.top + keyBounds.height - totalHeightPx
-    val isLeftFlush = kotlin.math.abs(bodyLeft - pointerLeft) < 1f
+    // 肩膀圆弧需要 pr 横向空间，空间不够时强制平齐
+    // cornerRadiusPx ≈ pr，作为近似判断
+    val rightRoom = bodyRight - pointerRight  // 宽体右边缘到窄体右边缘的距离
+    val leftRoom = pointerLeft - bodyLeft     // 窄体左边缘到宽体左边缘的距离
+
+    val isLeftFlush = if (isLongPressMode)
+        kotlin.math.abs(bodyLeft - pointerLeft) < 1f
+    else
+        leftRoom < cornerRadiusPx || kotlin.math.abs(bodyLeft - pointerLeft) < 1f
     val isRightFlush = if (isLongPressMode)
         kotlin.math.abs((bodyLeft + bodyWidth) - (pointerLeft + keyWidthPx)) < 1f
     else
-        kotlin.math.abs(bodyRight - pointerRight) < 1f
+        rightRoom < cornerRadiusPx || kotlin.math.abs(bodyRight - pointerRight) < 1f
     val bodyLeftInBox = bodyLeft - boxLeft
     val pointerLeftInBox = pointerLeft - boxLeft
     val boxWidthDp = with(density) { boxWidth.toDp() }
     val totalHeightDp = with(density) { totalHeightPx.toDp() }
 
-    val cachedPath = remember(bodyLeftInBox, bodyWidth, bodyHeightPx,
+    // 对齐宽体和窄体的边缘坐标
+    val pointerRightInBox = pointerLeftInBox + keyWidthPx
+    val pathBodyLeft = if (isLeftFlush && !isLongPressMode) pointerLeftInBox else bodyLeftInBox
+    val pathBodyRight = if (isRightFlush && !isLongPressMode) pointerRightInBox else (bodyLeftInBox + bodyWidth)
+    val pathBodyWidth = pathBodyRight - pathBodyLeft
+
+    val bubbleShape = remember(pathBodyLeft, pathBodyWidth, bodyHeightPx,
         pointerLeftInBox, keyWidthPx, pointerHeightPx, cornerRadiusPx,
         isLeftFlush, isRightFlush) {
-        buildInvertedConvexPath(
-            bodyLeft = bodyLeftInBox, bodyWidth = bodyWidth, bodyHeight = bodyHeightPx,
-            pointerLeft = pointerLeftInBox, pointerWidth = keyWidthPx,
-            pointerHeight = pointerHeightPx, cornerRadius = cornerRadiusPx,
-            isLeftFlush = isLeftFlush, isRightFlush = isRightFlush
-        )
+        InvertedConvexShape { _ ->
+            buildInvertedConvexPath(
+                bodyLeft = pathBodyLeft, bodyWidth = pathBodyWidth, bodyHeight = bodyHeightPx,
+                pointerLeft = pointerLeftInBox, pointerWidth = keyWidthPx,
+                pointerHeight = pointerHeightPx, cornerRadius = cornerRadiusPx,
+                isLeftFlush = isLeftFlush, isRightFlush = isRightFlush
+            )
+        }
     }
-    val bubbleShape = remember(cachedPath) { InvertedConvexShape(cachedPath) }
 
     val chaiFontFamily = remember {
         FontFamily(
@@ -236,7 +270,14 @@ fun SwipeBubble(
             .height(totalHeightDp)
             .shadow(10.dp, shape = bubbleShape, clip = false,
                 ambientColor = Color(0x88000000), spotColor = Color(0x88000000))
-            .drawBehind { drawPath(cachedPath, bgColor) }
+            .drawBehind {
+                drawInvertedConvexShape(
+                    bodyLeft = pathBodyLeft, bodyWidth = pathBodyWidth, bodyHeight = bodyHeightPx,
+                    pointerLeft = pointerLeftInBox, pointerWidth = keyWidthPx,
+                    pointerHeight = pointerHeightPx, cornerRadius = cornerRadiusPx,
+                    color = bgColor, isLeftFlush = isLeftFlush, isRightFlush = isRightFlush
+                )
+            }
     ) {
         Box(
             modifier = Modifier
