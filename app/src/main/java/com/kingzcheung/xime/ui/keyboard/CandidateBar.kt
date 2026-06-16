@@ -299,7 +299,8 @@ fun CandidateBar(
                                 onClick = { callbacks.onAssociationSelect?.invoke(index) },
                                 textColor = visuals.textColor,
                                 comment = "",
-                                isSelected = index == 0,
+                                // 候选词存在时联想词不高亮，避免双重选中
+                                isSelected = index == 0 && displayCandidates.isEmpty(),
                                 accentColor = visuals.accentColor
                             )
                         }
