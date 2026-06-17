@@ -231,7 +231,7 @@ fun KeyButton(
                     )
                 }
             }
-            .padding(horizontal = 2.dp, vertical = 3.dp)
+            .padding(horizontal = 2.dp, vertical = 2.dp)
             .fillMaxWidth()
             .fillMaxHeight()
             .then(shadowModifier)
@@ -514,7 +514,7 @@ fun SwipeableKeyButton(
                     }
                 }
             }
-            .padding(horizontal = 2.dp, vertical = 3.dp)
+            .padding(horizontal = 2.dp, vertical = 2.dp)
             .fillMaxWidth()
             .fillMaxHeight()
             .then(shadowModifier)
@@ -653,7 +653,7 @@ fun IconKeyButton(
                     }
                 )
             }
-            .padding(horizontal = 2.dp, vertical = 3.dp)
+            .padding(horizontal = 2.dp, vertical = 2.dp)
             .fillMaxWidth()
             .fillMaxHeight()
             .then(shadowModifier)
@@ -909,7 +909,7 @@ fun SwipeableIconKeyButton(
                     }
                 )
             }
-            .padding(horizontal = 2.dp, vertical = 3.dp)
+            .padding(horizontal = 2.dp, vertical = 2.dp)
             .fillMaxWidth()
             .fillMaxHeight()
             .then(shadowModifier)
