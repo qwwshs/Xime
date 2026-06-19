@@ -3,6 +3,18 @@ package com.kingzcheung.xime.settings
 import android.content.Context
 import android.net.Uri
 import android.util.Log
+import com.charleskorn.kaml.Yaml
+import com.charleskorn.kaml.YamlConfiguration
+import com.charleskorn.kaml.YamlInput
+import com.charleskorn.kaml.YamlList
+import com.charleskorn.kaml.YamlScalar
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -28,9 +40,42 @@ data class SchemaMeta(
     val description: String = ""
 )
 
+@Serializable
+private data class SchemaYaml(val schema: SchemaEntry)
+
+@Serializable
+private data class SchemaEntry(
+    @SerialName("schema_id") val schemaId: String = "",
+    val name: String = "",
+    val version: String = "",
+    @Serializable(with = AuthorSerializer::class)
+    val author: String = "",
+    val description: String? = null,
+)
+
+private object AuthorSerializer : KSerializer<String> {
+    override val descriptor = PrimitiveSerialDescriptor("Author", PrimitiveKind.STRING)
+
+    override fun deserialize(decoder: Decoder): String {
+        val input = decoder as? YamlInput ?: return decoder.decodeString()
+        return when (val node = input.node) {
+            is YamlScalar -> node.content.trim('"')
+            is YamlList -> node.items.firstOrNull()
+                ?.let { if (it is YamlScalar) it.content.trim('"') else "" }
+                ?: ""
+            else -> ""
+        }
+    }
+
+    override fun serialize(encoder: Encoder, value: String) {
+        encoder.encodeString(value)
+    }
+}
+
 object SchemaManager {
     private const val TAG = "SchemaManager"
     private const val CUSTOM_YAML = "default.custom.yaml"
+    private val yaml = Yaml(configuration = YamlConfiguration(strictMode = false))
 
     fun getRimeDir(context: Context): File =
         File(context.filesDir, "rime")
@@ -266,80 +311,19 @@ object SchemaManager {
     }
 
     private fun parseSchemaYaml(file: File): SchemaMeta? {
-        try {
-            val lines = file.readLines()
-            var schemaId = ""
-            var name = ""
-            var version = ""
-            var author = ""
-            var description = ""
-            var inSchemaBlock = false
-            var inAuthorBlock = false
-            var inDescription = false
-            val descriptionLines = mutableListOf<String>()
-
-            for (line in lines) {
-                val trimmed = line.trimStart()
-
-                if (trimmed == "schema:") {
-                    inSchemaBlock = true
-                    inAuthorBlock = false
-                    inDescription = false
-                    continue
-                }
-
-                if (!inSchemaBlock && !trimmed.startsWith("schema:")) continue
-
-                if (trimmed.startsWith("schema_id:")) {
-                    schemaId = trimmed.removePrefix("schema_id:").trim().removeSurrounding("\"")
-                } else if (trimmed.startsWith("name:")) {
-                    name = trimmed.removePrefix("name:").trim().removeSurrounding("\"")
-                } else if (trimmed.startsWith("version:")) {
-                    version = trimmed.removePrefix("version:").trim().removeSurrounding("\"")
-                } else if (trimmed.startsWith("author:")) {
-                    inAuthorBlock = true
-                    inDescription = false
-                    val rest = trimmed.removePrefix("author:").trim()
-                    if (rest.isNotEmpty()) {
-                        author = rest.removeSurrounding("\"").removePrefix("- ").trim()
-                    }
-                } else if (trimmed.startsWith("description:")) {
-                    inAuthorBlock = false
-                    inDescription = true
-                    val rest = trimmed.removePrefix("description:").trim()
-                    if (rest.isNotEmpty() && rest != "|") {
-                        description = rest.removeSurrounding("\"")
-                    }
-                } else if (inAuthorBlock && trimmed.startsWith("- ")) {
-                    if (author.isEmpty()) {
-                        author = trimmed.removePrefix("- ").trim().removeSurrounding("\"")
-                    }
-                } else if (inDescription && trimmed.isNotEmpty()) {
-                    descriptionLines.add(trimmed)
-                } else {
-                    if (trimmed.isNotEmpty() && !trimmed.startsWith("#")) {
-                        inAuthorBlock = false
-                        inDescription = false
-                    }
-                }
-            }
-
-            if (schemaId.isNotEmpty()) {
-                if (descriptionLines.isNotEmpty()) {
-                    description = descriptionLines.joinToString(" ").trim()
-                }
-                return SchemaMeta(
-                    schemaId = schemaId,
-                    name = name.ifEmpty { schemaId },
-                    version = version,
-                    author = author,
-                    description = description
-                )
-            }
-            return null
+        return try {
+            val entry = yaml.decodeFromString(SchemaYaml.serializer(), file.readText()).schema
+            if (entry.schemaId.isEmpty()) return null
+            SchemaMeta(
+                schemaId = entry.schemaId,
+                name = entry.name.ifEmpty { entry.schemaId },
+                version = entry.version,
+                author = entry.author,
+                description = entry.description ?: ""
+            )
         } catch (e: Exception) {
             Log.e(TAG, "Failed to parse schema file: ${file.name}", e)
-            return null
+            null
         }
     }
 

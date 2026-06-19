@@ -1881,12 +1881,7 @@ onVoiceModeChange = { enabled ->
                 
                 val userDataDir = File(filesDir, "rime")
                 
-                val customFile = File(userDataDir, "default.custom.yaml")
-                if (customFile.exists()) {
-                    Log.d(TAG, "Removing old default.custom.yaml")
-                    customFile.delete()
-                }
-                
+                // 清空 build 目录，强制 Rime 全量重新编译
                 val buildDir = File(userDataDir, "build")
                 if (buildDir.exists()) {
                     Log.d(TAG, "Cleaning build directory")
@@ -1934,6 +1929,7 @@ onVoiceModeChange = { enabled ->
             val savedSchema = SettingsPreferences.getCurrentSchema(this)
             applyPageSizeSetting(savedSchema)
             rimeEngine.switchSchema(savedSchema)
+            updateSchemaName()
             updateUI()
             Log.d(TAG, "Schema deployed successfully")
         } catch (e: Exception) {
