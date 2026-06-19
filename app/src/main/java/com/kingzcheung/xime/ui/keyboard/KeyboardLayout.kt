@@ -41,6 +41,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import com.kingzcheung.xime.settings.SettingsPreferences
+import com.kingzcheung.xime.settings.DisplayMode
 import com.kingzcheung.xime.settings.KeysConfigHelper
 import com.kingzcheung.xime.keyboard.GestureAction
 import androidx.compose.ui.Modifier
@@ -337,10 +338,8 @@ fun KeyboardLayout(
                                         swipeDownRaw?.label?.takeIf { it.isNotEmpty() }
                                     val swipeDownAction = swipeDownRaw?.action
                                     val swipeDownValue = swipeDownRaw?.value
-                                    val swipeDownDisplay = swipeDownRaw?.display ?: "key"
-                                    val swipeDownBubbleText =
-                                        if (swipeDownDisplay != "key") swipeDownLabel else null
-
+                                    val swipeDownDisplay = swipeDownRaw?.display ?: DisplayMode.BOTH
+                                    val swipeDownBubbleText = if (swipeDownDisplay != DisplayMode.KEY) swipeDownLabel else null
                                     val longPressConfig =
                                         KeysConfigHelper.getKeyGesture(key)?.longPress
                                     val longPressDisplay = longPressConfig?.display ?: "key"
@@ -358,11 +357,11 @@ fun KeyboardLayout(
                                     val onClick = remember(key, commitValue, onKeyPress) { { onKeyPress(commitValue) } }
                                     val onPress: (() -> Unit)? = remember(key, onKeyPressDown) { { onKeyPressDown?.invoke(key); Unit } }
                                     val onSwipeDown = if (swipeDownAction != null && swipeDownLabel != null) {
-                                        remember(key, onKeyPress, onGestureAction, swipeDownAction, swipeDownValue, swipeDownLabel) {
+                                        remember(key, onKeyPress, onGestureAction, onCommitText, swipeDownAction, swipeDownValue, swipeDownLabel) {
                                             val label = swipeDownLabel
                                             { _: String ->
                                                 if (swipeDownAction == GestureAction.COMMIT) {
-                                                    onKeyPress(key)
+                                                    (onCommitText ?: onKeyPress)(swipeDownValue?.ifEmpty { label } ?: label)
                                                 } else {
                                                     onGestureAction?.invoke(
                                                         swipeDownAction,
@@ -393,7 +392,7 @@ fun KeyboardLayout(
                                         modifier = Modifier.weight(1f),
                                         swipeText = swipeUpText,
                                         swipeDownText = swipeDownBubbleText,
-                                        swipeDownKeyLabel = if (swipeDownDisplay == "key") swipeDownLabel else null,
+                                        swipeDownKeyLabel = if (swipeDownDisplay == DisplayMode.KEY || swipeDownDisplay == DisplayMode.BOTH) swipeDownLabel else null,
                                         onSwipe = if (swipeUpText != null) onKeyPress else null,
                                         onSwipeDown = onSwipeDown,
                                         onSwipeStateChange = onSwipeStateChange,
@@ -787,9 +786,9 @@ fun KeyboardRowWithConfig(
             val swipeDownLabel = swipeDownRaw?.label?.takeIf { it.isNotEmpty() }
             val swipeDownAction = swipeDownRaw?.action
             val swipeDownValue = swipeDownRaw?.value
-            val swipeDownDisplay = swipeDownRaw?.display ?: "key"
+            val swipeDownDisplay = swipeDownRaw?.display ?: DisplayMode.BOTH
             val swipeDownBubbleText =
-                if (swipeDownDisplay != "key" && swipeDownHintsEnabled) swipeDownLabel else null
+                if (swipeDownDisplay != DisplayMode.KEY && swipeDownHintsEnabled) swipeDownLabel else null
 
             // 长按选项
             val longPressConfig = KeysConfigHelper.getKeyGesture(key)?.longPress
@@ -809,11 +808,11 @@ fun KeyboardRowWithConfig(
             val onClick = remember(key, commitValue, onKeyPress) { { onKeyPress(commitValue) } }
             val onPress: (() -> Unit)? = remember(key, onKeyPressDown) { { onKeyPressDown?.invoke(key); Unit } }
             val onSwipeDown: ((String) -> Unit)? = if (swipeDownAction != null && swipeDownHintsEnabled && swipeDownLabel != null) {
-                remember(key, onKeyPress, onGestureAction, swipeDownAction, swipeDownValue, swipeDownLabel) {
+                remember(key, onKeyPress, onGestureAction, onCommitText, swipeDownAction, swipeDownValue, swipeDownLabel) {
                     val label = swipeDownLabel
                     { _: String ->
                         if (swipeDownAction == GestureAction.COMMIT) {
-                            onKeyPress(key)
+                            (onCommitText ?: onKeyPress)(swipeDownValue?.ifEmpty { label } ?: label)
                         } else {
                             onGestureAction?.invoke(
                                 swipeDownAction,
@@ -843,7 +842,7 @@ fun KeyboardRowWithConfig(
                 modifier = Modifier.weight(1f),
                 swipeText = swipeUpText,
                 swipeDownText = swipeDownBubbleText,
-                swipeDownKeyLabel = if (swipeDownDisplay == "key" && swipeDownHintsEnabled) swipeDownLabel else null,
+                swipeDownKeyLabel = if ((swipeDownDisplay == DisplayMode.KEY || swipeDownDisplay == DisplayMode.BOTH) && swipeDownHintsEnabled) swipeDownLabel else null,
                 onSwipe = if (swipeUpText != null) onKeyPress else null,
                 onSwipeDown = onSwipeDown,
                 onSwipeStateChange = onSwipeStateChange,
@@ -1526,9 +1525,9 @@ fun CompactKeyboardRowWithConfig(
             val swipeDownLabel = swipeDownRaw?.label?.takeIf { it.isNotEmpty() }
             val swipeDownAction = swipeDownRaw?.action
             val swipeDownValue = swipeDownRaw?.value
-            val swipeDownDisplay = swipeDownRaw?.display ?: "key"
+            val swipeDownDisplay = swipeDownRaw?.display ?: DisplayMode.BOTH
             val swipeDownBubbleText =
-                if (swipeDownDisplay != "key" && swipeDownHintsEnabled) swipeDownLabel else null
+                if (swipeDownDisplay != DisplayMode.KEY && swipeDownHintsEnabled) swipeDownLabel else null
 
             val longPressConfig = KeysConfigHelper.getKeyGesture(key)?.longPress
             val longPressDisplay = longPressConfig?.display ?: "key"
@@ -1544,14 +1543,15 @@ fun CompactKeyboardRowWithConfig(
             val compactOnClick = remember(key, commitValue, onKeyPress) { { onKeyPress(commitValue) } }
             val compactOnPress: (() -> Unit)? = remember(key, onKeyPressDown) { { onKeyPressDown?.invoke(key); Unit } }
             val compactOnSwipeDown: ((String) -> Unit)? = if (swipeDownAction != null && swipeDownHintsEnabled && swipeDownLabel != null) {
-                remember(key, onKeyPress, onGestureAction, swipeDownAction, swipeDownValue, swipeDownLabel) {
+                remember(key, onKeyPress, onGestureAction, onCommitText, swipeDownAction, swipeDownValue, swipeDownLabel) {
+                    val label = swipeDownLabel
                     { _: String ->
                         if (swipeDownAction == GestureAction.COMMIT) {
-                            onKeyPress(key)
+                            (onCommitText ?: onKeyPress)(swipeDownValue?.ifEmpty { label } ?: label)
                         } else {
                             onGestureAction?.invoke(
                                 swipeDownAction,
-                                swipeDownValue?.ifEmpty { swipeDownLabel } ?: swipeDownLabel!!)
+                                swipeDownValue?.ifEmpty { label } ?: label!!)
                         }
                         Unit
                     }

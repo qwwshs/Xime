@@ -23,11 +23,19 @@ import java.io.InputStreamReader
 
 // ── 键盘手势配置 ──
 
+enum class DisplayMode(val value: String) {
+    KEY("key"), BUBBLE("bubble"), BOTH("both");
+
+    companion object {
+        fun fromValue(value: String): DisplayMode = entries.firstOrNull { it.value == value } ?: BOTH
+    }
+}
+
 data class GestureDef(
     val label: String = "",
     val action: GestureAction? = GestureAction.COMMIT,
     val value: String = "",
-    val display: String = "key", // "key"（默认）显示在按键上, "bubble" 气泡显示
+    val display: DisplayMode = DisplayMode.BOTH,
 )
 
 data class LongPressConfig(
@@ -159,7 +167,7 @@ private fun parseGestureNode(node: com.charleskorn.kaml.YamlNode): GestureDef {
                 "display" -> display = vStr
             }
         }
-        return GestureDef(label = label, action = action, value = value, display = display)
+        return GestureDef(label = label, action = action, value = value, display = DisplayMode.fromValue(display))
     }
     return GestureDef()
 }
@@ -600,8 +608,8 @@ object KeysConfigHelper {
     }
 
     /** 获取下滑显示位置：key（按键上）或 bubble（气泡） */
-    fun getSwipeDownDisplay(key: String): String {
-        return keyGestureConfig[key.lowercase()]?.swipeDown?.display ?: "key"
+    fun getSwipeDownDisplay(key: String): DisplayMode {
+        return keyGestureConfig[key.lowercase()]?.swipeDown?.display ?: DisplayMode.BOTH
     }
     
 

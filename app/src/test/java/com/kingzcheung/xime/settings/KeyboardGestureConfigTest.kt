@@ -193,6 +193,58 @@ class KeyboardGestureConfigTest {
         assertEquals("\\", keys["c"]!!.swipeUp!!.value)
     }
 
+    // ── DisplayMode ──
+
+    @Test
+    fun `字符串简写默认 display 为 both`() {
+        val keys = parseKeys("""
+            a: { tap: "a", swipe_down: "@" }
+        """.trimIndent())
+        assertEquals(DisplayMode.BOTH, keys["a"]!!.swipeDown!!.display)
+    }
+
+    @Test
+    fun `对象格式无 display 字段默认为 both`() {
+        val keys = parseKeys("""
+            a: { tap: "a", swipe_down: { label: "@", action: "commit" } }
+        """.trimIndent())
+        assertEquals(DisplayMode.BOTH, keys["a"]!!.swipeDown!!.display)
+    }
+
+    @Test
+    fun `对象格式 display_key 解析为 KEY`() {
+        val keys = parseKeys("""
+            a: { tap: "a", swipe_down: { label: "@", action: "commit", display: "key" } }
+        """.trimIndent())
+        assertEquals(DisplayMode.KEY, keys["a"]!!.swipeDown!!.display)
+    }
+
+    @Test
+    fun `对象格式 display_bubble 解析为 BUBBLE`() {
+        val keys = parseKeys("""
+            a: { tap: "a", swipe_down: { label: "@", action: "commit", display: "bubble" } }
+        """.trimIndent())
+        assertEquals(DisplayMode.BUBBLE, keys["a"]!!.swipeDown!!.display)
+    }
+
+    @Test
+    fun `对象格式 display_both 解析为 BOTH`() {
+        val keys = parseKeys("""
+            a: { tap: "a", swipe_down: { label: "@", action: "commit", display: "both" } }
+        """.trimIndent())
+        assertEquals(DisplayMode.BOTH, keys["a"]!!.swipeDown!!.display)
+    }
+
+    @Test
+    fun `对象指定 value 和 label 不同时 value 优先`() {
+        val keys = parseKeys("""
+            a: { tap: "a", swipe_down: { label: "@", action: "commit", value: "at" } }
+        """.trimIndent())
+        val sd = keys["a"]!!.swipeDown!!
+        assertEquals("@", sd.label)
+        assertEquals("at", sd.value)
+    }
+
     // ── 完整 26 键配置 ──
 
     @Test
@@ -367,7 +419,7 @@ class KeyboardGestureConfigTest {
             var label = ""
             var action: GestureAction? = GestureAction.COMMIT
             var value = ""
-            var display = "bubble"
+            var display = "both"
             for ((k, v) in node.entries) {
                 val key = (k as com.charleskorn.kaml.YamlScalar).content
                 val vStr = (v as? com.charleskorn.kaml.YamlScalar)?.content
@@ -378,7 +430,7 @@ class KeyboardGestureConfigTest {
                     "display" -> if (vStr != null) display = vStr
                 }
             }
-            return GestureDef(label = label, action = action, value = value, display = display)
+            return GestureDef(label = label, action = action, value = value, display = DisplayMode.fromValue(display))
         }
         return GestureDef()
     }
