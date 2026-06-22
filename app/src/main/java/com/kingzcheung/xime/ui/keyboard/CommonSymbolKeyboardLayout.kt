@@ -212,7 +212,7 @@ fun CommonSymbolKeyboardLayout(
                     fontSize = 14.sp,
                 )
                 KeyButton(
-                    text = "数字",
+                    text = "123",
                     onClick = { onKeyPress("number") },
                     backgroundColor = specialKeyBackgroundColor,
                     textColor = keyTextColor,
