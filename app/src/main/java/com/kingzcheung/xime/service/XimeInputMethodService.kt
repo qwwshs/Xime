@@ -1544,12 +1544,14 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                     }
                 }
                 "word_separator" -> {
-                    val processed = rimeEngine.processKey(0x20, 0)
-                    if (processed) {
-                        val result = rimeEngine.getProcessResult(processed)
-                        uiEventChannel.trySend {
-                            if (result.committedText.isNotEmpty()) commitText(result.committedText)
-                            updateUIWithResult(result)
+                    if (candState.isComposing || candState.inputText.isNotEmpty()) {
+                        val result = rimeEngine.processKeyAndGetResult(0x27, 0)
+                        if (result.processed) {
+                            uiEventChannel.trySend {
+                                updateUIWithResult(result)
+                            }
+                        } else {
+                            needsUIUpdate = true
                         }
                     } else {
                         needsUIUpdate = true

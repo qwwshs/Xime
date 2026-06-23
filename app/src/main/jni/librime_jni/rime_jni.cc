@@ -181,25 +181,33 @@ public:
             rime->free_commit(&commit);
         }
 
+    RIME_STRUCT(RimeContext, context);
+    if (rime->get_context(session_id_, &context)) {
+        // 优先使用 preedit（经过 preedit_format 格式化后的文本），
+        // 例如 stroke 方案中会将 hspnz 转为 一丨丿丶乛
+        if (context.composition.preedit && strlen(context.composition.preedit) > 0) {
+            result.inputText = context.composition.preedit;
+        } else {
+            const char* input = rime->get_input(session_id_);
+            result.inputText = input ? input : "";
+        }
+        if (context.menu.num_candidates > 0) {
+            for (int i = 0; i < context.menu.num_candidates; ++i) {
+                const char* text = context.menu.candidates[i].text;
+                const char* comment = context.menu.candidates[i].comment;
+                result.candidates.push_back(std::make_pair(
+                    text ? text : "",
+                    comment ? comment : ""
+                ));
+            }
+        }
+        result.hasNextPage = !context.menu.is_last_page;
+        result.hasPrevPage = context.menu.page_no > 0;
+        rime->free_context(&context);
+    } else {
         const char* input = rime->get_input(session_id_);
         result.inputText = input ? input : "";
-
-        RIME_STRUCT(RimeContext, context);
-        if (rime->get_context(session_id_, &context)) {
-            if (context.menu.num_candidates > 0) {
-                for (int i = 0; i < context.menu.num_candidates; ++i) {
-                    const char* text = context.menu.candidates[i].text;
-                    const char* comment = context.menu.candidates[i].comment;
-                    result.candidates.push_back(std::make_pair(
-                        text ? text : "",
-                        comment ? comment : ""
-                    ));
-                }
-            }
-            result.hasNextPage = !context.menu.is_last_page;
-            result.hasPrevPage = context.menu.page_no > 0;
-            rime->free_context(&context);
-        }
+    }
 
         RIME_STRUCT(RimeStatus, status);
         if (rime->get_status(session_id_, &status)) {
