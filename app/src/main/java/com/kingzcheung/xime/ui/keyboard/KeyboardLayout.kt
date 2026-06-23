@@ -28,6 +28,7 @@ import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material.icons.filled.EmojiEmotions
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.twotone.EmojiEmotions
+import androidx.compose.material.icons.twotone.KeyboardCapslock
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -73,6 +74,7 @@ import com.kingzcheung.xime.util.CharInfo
 import com.kingzcheung.xime.util.SubcharHelper
 import com.kingzcheung.xime.viewmodel.KeyboardUiState
 import com.kingzcheung.xime.viewmodel.KeyboardViewModel
+import com.kingzcheung.xime.viewmodel.ShiftMode
 import com.kingzcheung.xime.keyboard.KeyboardRoute
 import com.kingzcheung.xime.ui.theme.KeyboardThemes
 import androidx.compose.ui.platform.LocalConfiguration
@@ -93,6 +95,7 @@ fun KeyboardLayout(
     modifier: Modifier = Modifier,
 ) {
     val isShifted by viewModel.isShifted.collectAsStateWithLifecycle()
+    val shiftMode by viewModel.shiftMode.collectAsStateWithLifecycle()
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     val context = LocalContext.current
@@ -328,10 +331,9 @@ fun KeyboardLayout(
                                 .fillMaxHeight()
                                 .background(keyboardBackgroundColor),
                         ) {
-                            Row3KeyButton(
-                                icon = rememberVectorPainter(Icons.TwoTone.EmojiEmotions),
+                            ShiftCapsKeyButton(
+                                shiftMode = shiftMode,
                                 onKeyPress = onKeyPress,
-                                onGestureAction = onGestureAction,
                                 onKeyPressDown = onKeyPressDown,
                                 backgroundColor = specialKeyBackgroundColor,
                                 iconColor = keyTextColor,
@@ -378,7 +380,8 @@ fun KeyboardLayout(
                                     } else null
 
                                     val displayText = KeysConfigHelper.getKeyDisplayLabel(key)
-                                    val commitValue = KeysConfigHelper.getKeyCommitValue(key)
+                                    val rawCommitValue = KeysConfigHelper.getKeyCommitValue(key)
+                                    val commitValue = if (isShifted) rawCommitValue.uppercase() else rawCommitValue
 
                                     val onClick = remember(key, commitValue, onKeyPress) { { onKeyPress(commitValue) } }
                                     val onPress: (() -> Unit)? = remember(key, onKeyPressDown) { { onKeyPressDown?.invoke(key); Unit } }
@@ -806,7 +809,8 @@ fun KeyboardRowWithConfig(
 
             // 键帽显示文本
             val displayText = KeysConfigHelper.getKeyDisplayLabel(key)
-            val commitValue = KeysConfigHelper.getKeyCommitValue(key)
+            val rawCommitValue = KeysConfigHelper.getKeyCommitValue(key)
+            val commitValue = if (isShifted) rawCommitValue.uppercase() else rawCommitValue
 
             val onClick = remember(key, commitValue, onKeyPress) { { onKeyPress(commitValue) } }
             val onPress: (() -> Unit)? = remember(key, onKeyPressDown) { { onKeyPressDown?.invoke(key); Unit } }
@@ -864,10 +868,9 @@ fun KeyboardRowWithConfig(
 }
 
 @Composable
-private fun Row3KeyButton(
-    icon: Painter,
+private fun ShiftCapsKeyButton(
+    shiftMode: ShiftMode,
     onKeyPress: (String) -> Unit,
-    onGestureAction: ((GestureAction, String) -> Unit)?,
     onKeyPressDown: ((String) -> Unit)?,
     backgroundColor: Color,
     iconColor: Color,
@@ -876,26 +879,66 @@ private fun Row3KeyButton(
     shadowElevation: Dp = 1.dp,
     shadowShapeRadius: Dp = 8.dp,
 ) {
-    val tap = KeysConfigHelper.getKeyGesture("row3_key1")?.tap
-    val action = tap?.action
-    val value = tap?.value?.takeIf { it.isNotEmpty() } ?: "emoji"
-    IconKeyButton(
-        icon = icon,
-        onClick = {
-            if (action != null && action != GestureAction.COMMIT) {
-                onGestureAction?.invoke(action, value)
-            } else {
-                onKeyPress(value)
+    var isPressed by remember { mutableStateOf(false) }
+
+    val shadowShape = remember(shadowShapeRadius) { RoundedCornerShape(shadowShapeRadius) }
+    val shadowModifier = remember(shadowEnabled, shadowElevation, shadowShapeRadius) {
+        if (shadowEnabled) Modifier.shadow(shadowElevation, shadowShape) else Modifier
+    }
+
+    fun darkenColor(color: Color, factor: Float = 0.15f): Color {
+        return Color(
+            red = (color.red * (1 - factor)).coerceIn(0f, 1f),
+            green = (color.green * (1 - factor)).coerceIn(0f, 1f),
+            blue = (color.blue * (1 - factor)).coerceIn(0f, 1f),
+            alpha = color.alpha
+        )
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxHeight()
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onPress = {
+                        isPressed = true
+                        onKeyPressDown?.invoke("shift")
+                        tryAwaitRelease()
+                        isPressed = false
+                    },
+                    onDoubleTap = { onKeyPress("shift_caps") },
+                    onTap = { onKeyPress("shift_single") }
+                )
             }
-        },
-        backgroundColor = backgroundColor,
-        iconColor = iconColor,
-        modifier = modifier,
-        onPress = { onKeyPressDown?.invoke(value) },
-        shadowEnabled = shadowEnabled,
-        shadowElevation = shadowElevation,
-        shadowShapeRadius = shadowShapeRadius,
-    )
+            .padding(horizontal = 2.dp, vertical = 4.25.dp)
+            .then(shadowModifier)
+            .clip(shadowShape)
+            .background(
+                if (isPressed) darkenColor(backgroundColor, 0.1f)
+                else if (shiftMode == ShiftMode.CAPS) darkenColor(backgroundColor, 0.2f)
+                else if (shiftMode == ShiftMode.SINGLE) darkenColor(backgroundColor, 0.1f)
+                else backgroundColor
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            painter = rememberVectorPainter(Icons.TwoTone.KeyboardCapslock),
+            contentDescription = null,
+            tint = iconColor,
+            modifier = Modifier.size(20.dp)
+        )
+
+        if (shiftMode == ShiftMode.CAPS) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(3.dp)
+                    .size(6.dp)
+                    .clip(RoundedCornerShape(3.dp))
+                    .background(iconColor)
+            )
+        }
+    }
 }
 
 /**
@@ -913,6 +956,7 @@ private fun LandscapeKeyboardContent(
     onSwipeStateChange: ((SwipeState, Rect) -> Unit)? = null,
 ) {
     val isShifted by viewModel.isShifted.collectAsStateWithLifecycle()
+    val shiftMode by viewModel.shiftMode.collectAsStateWithLifecycle()
     val suppressCursorMove = LocalSuppressCursorMove.current
     val staggerStep = 10.dp
     val landscapeFontSize = 12.sp
@@ -1036,10 +1080,9 @@ private fun LandscapeKeyboardContent(
                     .fillMaxWidth()
                     .weight(1f),
             ) {
-                Row3KeyButton(
-                    icon = rememberVectorPainter(Icons.Default.EmojiEmotions),
+                ShiftCapsKeyButton(
+                    shiftMode = shiftMode,
                     onKeyPress = onKeyPress,
-                    onGestureAction = onGestureAction,
                     onKeyPressDown = onKeyPressDown,
                     backgroundColor = specialKeyBackgroundColor,
                     iconColor = keyTextColor,
@@ -1611,7 +1654,8 @@ fun CompactKeyboardRowWithConfig(
                 longPressConfig?.values?.associateBy { it.label }
             } else null
 
-            val commitValue = KeysConfigHelper.getKeyCommitValue(key)
+            val rawCommitValue = KeysConfigHelper.getKeyCommitValue(key)
+            val commitValue = if (isShifted) rawCommitValue.uppercase() else rawCommitValue
             val compactOnClick = remember(key, commitValue, onKeyPress) { { onKeyPress(commitValue) } }
             val compactOnPress: (() -> Unit)? = remember(key, onKeyPressDown) { { onKeyPressDown?.invoke(key); Unit } }
             val compactOnSwipeDown: ((String) -> Unit)? = if (swipeDownAction != null && swipeDownHintsEnabled && swipeDownLabel != null) {
