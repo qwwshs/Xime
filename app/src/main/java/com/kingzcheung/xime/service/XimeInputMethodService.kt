@@ -551,6 +551,7 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                 } else {
                     displayHeight
                 }
+                Log.d(TAG, "ComposeHeight: showResize=${state.showKeyboardResize} orientHeight=$orientationHeight displayHeight=$displayHeight keyboardHeight=$keyboardHeight")
                 
                 XimeTheme(darkTheme = isDarkTheme, themeId = state.themeId) {
                     Box(
@@ -585,8 +586,9 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                         val density = LocalDensity.current
                         val navBarPx = WindowInsets.navigationBars.getBottom(density)
                         val navBarDp = with(density) { navBarPx.toDp() }
-                        val totalDp = keyboardHeight + state.keyboardBottomPaddingDp + navBarDp.value.toInt()
-                        Log.d(TAG, "HeightSync: keyboardHeight=$keyboardHeight navBarDp=${navBarDp.value} bottomPadding=${state.keyboardBottomPaddingDp} totalDp=$totalDp")
+                        val height = if (state.showKeyboardResize) state.resizePreviewHeightDp else keyboardHeight
+                        val totalDp = height + state.keyboardBottomPaddingDp + navBarDp.value.toInt()
+                        Log.d(TAG, "HeightSync: mode=${if (state.showKeyboardResize) "resize" else "normal"} height=$height kbHeight=$keyboardHeight navBarDp=${navBarDp.value} bottomPadding=${state.keyboardBottomPaddingDp} totalDp=$totalDp")
                         SideEffect {
                             keyboardContainer.updateHeight(totalDp)
                         }
@@ -725,7 +727,7 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                                             resizePreviewBottomPaddingDp = currentPadding,
                                             originalKeyboardHeightDp = displayHeight,
                                             originalKeyboardBottomPaddingDp = currentPadding,
-                                            stretchFactor = ((displayHeight - 126f) / (defaultHeight - 126f)).coerceAtLeast(0f)
+                                            stretchFactor = ((displayHeight - 118f) / (defaultHeight - 118f)).coerceAtLeast(0f)
                                         )
                                     },
                                     onReloadConfig = { reloadConfig() },
@@ -816,7 +818,7 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                              KeyboardResizeOverlay(
                                 initialHeightDp = state.resizePreviewHeightDp,
                                 initialBottomPaddingDp = state.resizePreviewBottomPaddingDp,
-                                defaultHeightDp = SettingsPreferences.getOrientationDefaultKeyboardHeightDp(this@XimeInputMethodService, isLandscape),
+                                defaultHeightDp = SettingsPreferences.getDefaultKeyboardHeightDp(this@XimeInputMethodService, isLandscape),
                                  defaultBottomPaddingDp = SettingsPreferences.getDefaultKeyboardBottomPaddingDp(),
                                maxContainerHeightDp = keyboardHeight,
                               onHeightChange = { newHeight ->
@@ -844,6 +846,7 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                                   )
                               },
                               onConfirm = { newHeight, newPadding ->
+                                  Log.d(TAG, "onConfirm: newHeight=$newHeight newPadding=$newPadding")
                                   setKeyboardHeight(newHeight)
                                   SettingsPreferences.setKeyboardBottomPaddingDp(this@XimeInputMethodService, newPadding)
                                   uiState.value = uiState.value.copy(
@@ -855,7 +858,7 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                               onCancel = {
                                   val originalHeight = state.originalKeyboardHeightDp
                                    val defaultHeight = SettingsPreferences.getDefaultKeyboardHeightDp(this@XimeInputMethodService, isLandscape)
-                                   val cancelStretchFactor = ((originalHeight - 126f) / (defaultHeight - 126f)).coerceAtLeast(0f)
+                                    val cancelStretchFactor = ((originalHeight - 118f) / (defaultHeight - 118f)).coerceAtLeast(0f)
                                   uiState.value = uiState.value.copy(
                                       showKeyboardResize = false,
                                       keyboardHeightDp = originalHeight,

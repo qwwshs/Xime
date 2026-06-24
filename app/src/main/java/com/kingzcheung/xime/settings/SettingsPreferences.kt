@@ -324,10 +324,6 @@ object SettingsPreferences {
     }
 
     fun getOrientationDefaultKeyboardHeightDp(context: Context, isLandscape: Boolean): Int {
-        val key = if (isLandscape) KEY_KEYBOARD_HEIGHT_DP_LANDSCAPE else KEY_KEYBOARD_HEIGHT_DP
-        val stored = getPrefs(context).getInt(key, -1)
-        if (stored > 0) return stored
-        // 没有用户存储值，从百分比计算
         return getDefaultKeyboardHeightDp(context, isLandscape)
     }
 
