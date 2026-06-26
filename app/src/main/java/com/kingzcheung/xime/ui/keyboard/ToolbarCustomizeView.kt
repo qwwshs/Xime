@@ -45,7 +45,6 @@ import com.kingzcheung.xime.keyboard.ToolbarButton
 fun ToolbarCustomizeView(
     toolbarButtons: List<String>,
     keyTextColor: Color,
-    keyBgColor: Color,
     backgroundColor: Color,
     accentColor: Color,
     onUpdateToolbarButtons: ((List<String>) -> Unit)?,

@@ -41,25 +41,32 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBars
 
+data class CandidatePageState(
+    val candidates: List<String>,
+    val candidateComments: List<String> = emptyList(),
+    val associationCandidates: List<String> = emptyList(),
+    val backgroundColor: Color,
+    val textColor: Color,
+    val hasNextPage: Boolean = false,
+    val hasPrevPage: Boolean = false,
+    val bottomPaddingDp: Int = 0,
+)
+
+data class CandidatePageCallbacks(
+    val onCandidateSelect: (Int) -> Unit,
+    val onAssociationSelect: ((Int) -> Unit)? = null,
+    val onPageDown: (() -> Unit)? = null,
+    val onPageUp: (() -> Unit)? = null,
+    val onBack: (() -> Unit)? = null,
+)
+
 @Composable
 fun CandidatePage(
-    candidates: List<String>,
-    candidateComments: List<String> = emptyList(),
-    associationCandidates: List<String> = emptyList(),
-    inputText: String,
-    onCandidateSelect: (Int) -> Unit,
-    onAssociationSelect: ((Int) -> Unit)? = null,
-    backgroundColor: Color,
-    textColor: Color,
-    hasNextPage: Boolean = false,
-    hasPrevPage: Boolean = false,
-    onPageDown: (() -> Unit)? = null,
-    onPageUp: (() -> Unit)? = null,
-    onBack: (() -> Unit)? = null,
-    bottomPaddingDp: Int = 0,
+    state: CandidatePageState,
+    callbacks: CandidatePageCallbacks,
     modifier: Modifier = Modifier
 ) {
-    val isDarkTheme = textColor == Color(0xFFE8EAED)
+    val isDarkTheme = state.textColor == Color(0xFFE8EAED)
     val configuration = LocalConfiguration.current
     val isLandscape =
         configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
@@ -69,10 +76,10 @@ fun CandidatePage(
 
     LaunchedEffect(pagerState.currentPage) {
         if (pagerState.currentPage != centerPage) {
-            if (pagerState.currentPage == 0 && hasPrevPage && onPageUp != null) {
-                onPageUp()
-            } else if (pagerState.currentPage == 2 && hasNextPage && onPageDown != null) {
-                onPageDown()
+            if (pagerState.currentPage == 0 && state.hasPrevPage && callbacks.onPageUp != null) {
+                callbacks.onPageUp()
+            } else if (pagerState.currentPage == 2 && state.hasNextPage && callbacks.onPageDown != null) {
+                callbacks.onPageDown()
             }
             pagerState.scrollToPage(centerPage)
         }
@@ -81,7 +88,7 @@ fun CandidatePage(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(backgroundColor)
+            .background(state.backgroundColor)
     ) {
         // 导航区
         Row(
@@ -103,19 +110,19 @@ fun CandidatePage(
                         .size(28.dp)
                         .clip(CircleShape)
                         .background(
-                            if (hasPrevPage && onPageUp != null) textColor.copy(alpha = 0.5f)
-                            else textColor.copy(alpha = 0.1f)
+                            if (state.hasPrevPage && callbacks.onPageUp != null) state.textColor.copy(alpha = 0.5f)
+                            else state.textColor.copy(alpha = 0.1f)
                         )
                         .clickable(
-                            enabled = hasPrevPage && onPageUp != null,
-                            onClick = { onPageUp?.invoke() }
+                            enabled = state.hasPrevPage && callbacks.onPageUp != null,
+                            onClick = { callbacks.onPageUp?.invoke() }
                         ),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
                         contentDescription = "上一页",
-                        tint = if (hasPrevPage) textColor else textColor.copy(alpha = 0.3f),
+                        tint = if (state.hasPrevPage) state.textColor else state.textColor.copy(alpha = 0.3f),
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -125,19 +132,19 @@ fun CandidatePage(
                         .size(28.dp)
                         .clip(CircleShape)
                         .background(
-                            if (hasNextPage && onPageDown != null) textColor.copy(alpha = 0.25f)
-                            else textColor.copy(alpha = 0.1f)
+                            if (state.hasNextPage && callbacks.onPageDown != null) state.textColor.copy(alpha = 0.25f)
+                            else state.textColor.copy(alpha = 0.1f)
                         )
                         .clickable(
-                            enabled = hasNextPage && onPageDown != null,
-                            onClick = { onPageDown?.invoke() }
+                            enabled = state.hasNextPage && callbacks.onPageDown != null,
+                            onClick = { callbacks.onPageDown?.invoke() }
                         ),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                         contentDescription = "下一页",
-                        tint = if (hasNextPage) textColor else textColor.copy(alpha = 0.3f),
+                        tint = if (state.hasNextPage) state.textColor else state.textColor.copy(alpha = 0.3f),
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -148,13 +155,13 @@ fun CandidatePage(
                     .size(28.dp)
                     .clip(CircleShape)
                     .background(if (isDarkTheme) Color(0xFF374151) else Color(0xFFF3F4F6))
-                    .clickable { onBack?.invoke() },
+                    .clickable { callbacks.onBack?.invoke() },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Default.KeyboardArrowUp,
                     contentDescription = "返回",
-                    tint = textColor,
+                    tint = state.textColor,
                     modifier = Modifier.size(24.dp)
                 )
             }
@@ -172,24 +179,24 @@ fun CandidatePage(
                         .verticalScroll(rememberScrollState())
                         .padding(bottom = 40.dp)
                 ) {
-                    if (candidates.isNotEmpty()) {
+                    if (state.candidates.isNotEmpty()) {
                         FlowRow(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            candidates.forEachIndexed { index, candidate ->
+                            state.candidates.forEachIndexed { index, candidate ->
                                 CandidatePageItem(
                                     text = candidate,
-                                    comment = candidateComments.getOrElse(index) { "" },
-                                    onClick = { onCandidateSelect(index) },
-                                    textColor = textColor
+                                    comment = state.candidateComments.getOrElse(index) { "" },
+                                    onClick = { callbacks.onCandidateSelect(index) },
+                                    textColor = state.textColor
                                 )
                             }
                         }
                     }
 
-                    if (associationCandidates.isNotEmpty()) {
+                    if (state.associationCandidates.isNotEmpty()) {
                         Spacer(modifier = Modifier.height(8.dp))
 
                         FlowRow(
@@ -197,12 +204,12 @@ fun CandidatePage(
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            associationCandidates.forEachIndexed { index, candidate ->
+                            state.associationCandidates.forEachIndexed { index, candidate ->
                                 CandidatePageItem(
                                     text = candidate,
                                     comment = "",
-                                    onClick = { onAssociationSelect?.invoke(index) },
-                                    textColor = textColor
+                                    onClick = { callbacks.onAssociationSelect?.invoke(index) },
+                                    textColor = state.textColor
                                 )
                             }
                         }
@@ -217,7 +224,7 @@ fun CandidatePage(
         Spacer(
             modifier = Modifier.height(
                 if (isLandscape) 15.dp else maxOf(
-                    bottomPaddingDp.dp,
+                    state.bottomPaddingDp.dp,
                     with(LocalDensity.current) { WindowInsets.navigationBars.getBottom(this).toDp() }
                 )
             )

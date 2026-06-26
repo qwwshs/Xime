@@ -49,7 +49,6 @@ fun KeyboardView(
     viewModel: KeyboardViewModel,
     state: KeyboardUiState,
     callbacks: KeyboardCallbacks,
-    floatingCardWidthDp: Int = 0,
     modifier: Modifier = Modifier,
 ) {
     val isShifted by viewModel.isShifted.collectAsStateWithLifecycle()
@@ -502,7 +501,6 @@ fun KeyboardView(
                 is KeyboardRoute.ToolbarCustomize -> ToolbarCustomizeView(
                     toolbarButtons = state.toolbarButtons,
                     keyTextColor = keyTextColor,
-                    keyBgColor = keyBgColor,
                     backgroundColor = keyboardBgColor,
                     accentColor = accentColor,
                     onUpdateToolbarButtons = callbacks.onUpdateToolbarButtons,
@@ -511,26 +509,29 @@ fun KeyboardView(
                     modifier = Modifier.fillMaxWidth().fillMaxHeight()
                 )
                 is KeyboardRoute.CandidatePage -> CandidatePage(
-                    candidates = state.candidates.toList(),
-                    candidateComments = state.candidateComments.toList(),
-                    associationCandidates = state.associationCandidates.toList(),
-                    inputText = state.inputText,
-                    onCandidateSelect = { index ->
-                        callbacks.onCandidateSelect(index)
-                        viewModel.setRoute(KeyboardRoute.Keyboard)
-                    },
-                    onAssociationSelect = { index ->
-                        callbacks.onAssociationSelect?.invoke(index)
-                        viewModel.setRoute(KeyboardRoute.Keyboard)
-                    },
-                    backgroundColor = candidateBarBg,
-                    textColor = candidateTextColor,
-                    hasNextPage = state.hasNextPage,
-                    hasPrevPage = state.hasPrevPage,
-                    onPageDown = callbacks.onPageDown,
-                    onPageUp = callbacks.onPageUp,
-                    onBack = { viewModel.setRoute(KeyboardRoute.Keyboard) },
-                    bottomPaddingDp = state.keyboardBottomPaddingDp,
+                    state = CandidatePageState(
+                        candidates = state.candidates.toList(),
+                        candidateComments = state.candidateComments.toList(),
+                        associationCandidates = state.associationCandidates.toList(),
+                        backgroundColor = candidateBarBg,
+                        textColor = candidateTextColor,
+                        hasNextPage = state.hasNextPage,
+                        hasPrevPage = state.hasPrevPage,
+                        bottomPaddingDp = state.keyboardBottomPaddingDp,
+                    ),
+                    callbacks = CandidatePageCallbacks(
+                        onCandidateSelect = { index ->
+                            callbacks.onCandidateSelect(index)
+                            viewModel.setRoute(KeyboardRoute.Keyboard)
+                        },
+                        onAssociationSelect = { index ->
+                            callbacks.onAssociationSelect?.invoke(index)
+                            viewModel.setRoute(KeyboardRoute.Keyboard)
+                        },
+                        onPageDown = callbacks.onPageDown,
+                        onPageUp = callbacks.onPageUp,
+                        onBack = { viewModel.setRoute(KeyboardRoute.Keyboard) },
+                    ),
                     modifier = Modifier.fillMaxWidth().fillMaxHeight()
                 )
                 is KeyboardRoute.SplitWords -> SplitWordsView(
