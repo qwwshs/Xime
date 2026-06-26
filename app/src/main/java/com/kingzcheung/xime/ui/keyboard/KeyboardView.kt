@@ -298,7 +298,14 @@ fun KeyboardView(
                             )
                             "symbol" -> viewModel.setRoute(KeyboardRoute.Symbol)
                             "emoji" -> viewModel.setRoute(KeyboardRoute.Emoji)
-                            else -> callbacks.onKeyPress(key, false)
+                            else -> {
+                                if (key.length == 1 && key[0] !in "0123456789+-*/.=") {
+                                    callbacks.onCommitText?.invoke(key)
+                                        ?: callbacks.onKeyPress(key, false)
+                                } else {
+                                    callbacks.onKeyPress(key, false)
+                                }
+                            }
                         }
                     }
                     val symbolOnKeyPress: (String) -> Unit = { key ->
