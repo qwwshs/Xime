@@ -974,4 +974,120 @@ class T9InputControllerTest {
         ctrl.clearRimeAndResend()
         assertEquals(2, undoCount)
     }
+
+    // ── 场景9：简拼左选后继续输入数字，再左选，退格顺序 ──
+    //
+    // 操作流程（来自 .trae/回退测试.md 场景9）：
+    // 1. 输入 5 → inputBuffer="5"，左侧候选区【j,k,l】
+    // 2. 左选 l → inputBuffer="l"，左侧候选区空闲态
+    // 3. 输入 4 → inputBuffer="l'4"（修复后自动加分隔符，让 RIME 解析为 "l"+"4" 多音节）
+    //            左侧候选区【g,h,i】
+    // 4. 左选 h → inputBuffer="lh"，左侧候选区空闲态
+    // 5. 退格4次：撤销h → "l'4" → 删4 → "l'" → 撤销l → "5" → 删5 → ""
+    //
+    // 修复前 bug：
+    //   - 步骤3：inputBuffer="l4"（无分隔符），RIME 解析为单音节 "li"，
+    //     lua filter 无法替换数字段，preedit 显示 "l4" 而非 "l g"
+    //   - BS1：snapshot.buffer=consumedDigits="4"，撤销后 inputBuffer="4"，
+    //     丢失前缀已确认拼音 "l"
+
+    @Test
+    fun `scenario 9 - left choice then digit then left choice backspace order`() {
+        val ctrl = createController()
+
+        // 步骤1: 输入 5
+        ctrl.onDigitPressed("5")
+        assertEquals("5", ctrl.inputBuffer)
+        assertPinyins(ctrl, "j", "k", "l")
+
+        // 步骤2: 左选 l
+        ctrl.onChoiceSelected(T9PinyinMap.SyllableOption("l", 1))
+        assertEquals("l", ctrl.inputBuffer)
+        assertTrue("left panel should be idle after full pinyin choice",
+            ctrl.firstOptions.isEmpty())
+
+        // 步骤3: 输入 4（修复后自动加分隔符 "l'4"，让 RIME 解析多音节）
+        ctrl.onDigitPressed("4")
+        assertEquals("l'4", ctrl.inputBuffer)
+        assertPinyins(ctrl, "g", "h", "i")
+
+        // 步骤4: 左选 h
+        ctrl.onChoiceSelected(T9PinyinMap.SyllableOption("h", 1))
+        assertEquals("lh", ctrl.inputBuffer)
+        assertTrue("left panel should be idle after full pinyin choice",
+            ctrl.firstOptions.isEmpty())
+
+        // 步骤5: 退格（4次）
+        // BS1: 撤销 h → "l'4"（修复后：snapshot 保留完整前缀 "l"）
+        assertEquals(T9InputController.DeleteResult.UNDO_CHOICE, ctrl.delete())
+        assertEquals("l'4", ctrl.inputBuffer)
+        assertPinyins(ctrl, "g", "h", "i")
+
+        // BS2: 删除 4 → "l'"
+        assertEquals(T9InputController.DeleteResult.DELETED, ctrl.delete())
+        assertEquals("l'", ctrl.inputBuffer)
+        // 以分隔符结尾：显示 l 对应数字段 5 的候选
+        assertPinyins(ctrl, "j", "k", "l")
+
+        // BS3: 撤销 l → "5"
+        assertEquals(T9InputController.DeleteResult.UNDO_CHOICE, ctrl.delete())
+        assertEquals("5", ctrl.inputBuffer)
+        assertPinyins(ctrl, "j", "k", "l")
+
+        // BS4: 删除 5 → ""
+        assertEquals(T9InputController.DeleteResult.DELETED, ctrl.delete())
+        assertEquals("", ctrl.inputBuffer)
+        assertTrue(ctrl.firstOptions.isEmpty())
+
+        assertEquals(T9InputController.DeleteResult.NOT_CONSUMED, ctrl.delete())
+    }
+
+    @Test
+    fun `bug3 - digit pressed after letter inserts apostrophe for multi-syllable parsing`() {
+        val ctrl = createController()
+        // 输入 5，选 l → "l"
+        ctrl.onDigitPressed("5")
+        ctrl.onChoiceSelected(T9PinyinMap.SyllableOption("l", 1))
+        assertEquals("l", ctrl.inputBuffer)
+
+        // 输入 4 → 应自动加分隔符 "l'4"，让 RIME 把 "l" 和 "4" 解析为两个音节
+        // 修复前：inputBuffer="l4"，RIME 解析为单音节 "li"，lua filter 无法替换数字段
+        ctrl.onDigitPressed("4")
+        assertEquals("l'4", ctrl.inputBuffer)
+        assertPinyins(ctrl, "g", "h", "i")
+    }
+
+    @Test
+    fun `bug3 - left choice after letter-digit preserves prefix in snapshot`() {
+        val ctrl = createController()
+        // 输入 5，选 l → "l"
+        ctrl.onDigitPressed("5")
+        ctrl.onChoiceSelected(T9PinyinMap.SyllableOption("l", 1))
+        // 输入 4 → "l'4"
+        ctrl.onDigitPressed("4")
+        assertEquals("l'4", ctrl.inputBuffer)
+        // 选 h → "lh"
+        ctrl.onChoiceSelected(T9PinyinMap.SyllableOption("h", 1))
+        assertEquals("lh", ctrl.inputBuffer)
+
+        // 撤销 h → 应恢复 "l'4"，不丢失 "l"
+        // 修复前：snapshot.buffer=consumedDigits="4"，撤销后 inputBuffer="4"（丢失 "l"）
+        assertEquals(T9InputController.DeleteResult.UNDO_CHOICE, ctrl.delete())
+        assertEquals("l'4", ctrl.inputBuffer)
+    }
+
+    @Test
+    fun `bug3 - digit pressed after pure digits does not insert apostrophe`() {
+        val ctrl = createController()
+        // 纯数字 inputBuffer 不应加分隔符
+        ctrl.onDigitPressed("5")
+        ctrl.onDigitPressed("4")
+        assertEquals("54", ctrl.inputBuffer)
+
+        // 分隔符后输入数字也不应再加分隔符
+        // 分词键贪婪匹配最长拼音 "ji"（digitLength=2），消费 "54" → "ji'"
+        ctrl.onDigitPressed("1") // 分词键 → "ji'"
+        ctrl.onDigitPressed("4")
+        assertEquals("ji'4", ctrl.inputBuffer)
+    }
 }

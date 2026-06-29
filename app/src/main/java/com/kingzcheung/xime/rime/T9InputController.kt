@@ -337,6 +337,12 @@ class T9InputController(
         if (snapshots.isNotEmpty() && snapshots.last().isRightCommit) {
             rightCommitRemainingDirty = true
         }
+        // 已确认拼音（字母结尾）后追加数字时，自动插入分隔符 '。
+        // 让 RIME 把已确认拼音与新数字段解析为多音节，否则 "l4" 会被当作
+        // 单音节展开为 "li"，lua filter 无法替换数字段，preedit 显示 "l4" 而非 "l g"。
+        if (inputBuffer.isNotEmpty() && inputBuffer.last().isLetter()) {
+            inputBuffer += "'"
+        }
         inputBuffer += digit
         updateCandidates()
         sendToRime()
@@ -407,10 +413,11 @@ class T9InputController(
         val segmentStart = inputBuffer.length - segment.length
         val remaining = segment.drop(option.digitLength)
         val consumedDigits = segment.take(option.digitLength)
-        // 快照只保存本次消费的数字段（剩余数字随当前选择一起可撤销）
+        // 快照保存「前缀已确认拼音 + 本次消费的数字段」：剩余数字由 onDeleted 优先级2逐位删除。
+        // 若只保存 consumedDigits，当 inputBuffer 含前缀字母（如 "l4"）时撤销会丢失前缀 "l"。
         snapshots.add(
             Snapshot(
-                buffer = consumedDigits,
+                buffer = inputBuffer.substring(0, segmentStart) + consumedDigits,
                 isRightCommit = false,
                 separatorConsumedDigits = separatorConsumedDigits,
                 lastChoiceConsumedDigits = lastChoiceConsumedDigits,
