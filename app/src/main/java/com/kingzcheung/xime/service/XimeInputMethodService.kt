@@ -175,6 +175,7 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
     private var keyboardCallbacks: KeyboardCallbacks? = null
     private var isChineseMode = true
     private var currentEffectiveKeyboardHeight: Int = 0
+    private var currentFloatingCardHeightDp: Int = 0
     private var previousSchemaId: String = ""
     
     private val calculatorEngine = com.kingzcheung.xime.calculator.CalculatorEngine()
@@ -273,15 +274,32 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                 if (decorView != null) {
                     val insets = decorView.rootWindowInsets
                     if (insets != null) {
-                        val px = insets.getInsetsIgnoringVisibility(
+                        return (insets.getInsetsIgnoringVisibility(
+                            android.view.WindowInsets.Type.navigationBars()
+                        ).bottom / resources.displayMetrics.density).roundToInt()
+                    }
+                }
+            }
+            val resId = resources.getIdentifier("navigation_bar_height", "dimen", "android")
+            if (resId > 0) (resources.getDimensionPixelSize(resId) / resources.displayMetrics.density).roundToInt() else 0
+        } catch (e: Exception) { 0 }
+    }
+
+    private fun tryGetVisibleNavBarHeightDp(): Int {
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                val decorView = window.window?.decorView
+                if (decorView != null) {
+                    val insets = decorView.rootWindowInsets
+                    if (insets != null) {
+                        val px = insets.getInsets(
                             android.view.WindowInsets.Type.navigationBars()
                         ).bottom
                         if (px > 0) return (px / resources.displayMetrics.density).roundToInt()
                     }
                 }
             }
-            val resId = resources.getIdentifier("navigation_bar_height", "dimen", "android")
-            if (resId > 0) (resources.getDimensionPixelSize(resId) / resources.displayMetrics.density).roundToInt() else 0
+            0
         } catch (e: Exception) { 0 }
     }
 
@@ -642,8 +660,16 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                 val isHandwritingMode = (page as? com.kingzcheung.xime.keyboard.KeyboardPage.Main)?.type == com.kingzcheung.xime.keyboard.MainType.HANDWRITING
                 val isDarkTheme = isDarkTheme()
                 val screenHeightDp = resources.configuration.screenHeightDp
-                val windowVisibleHeightDp = screenHeightDp - tryGetStatusBarHeightDp()
-                val effectiveScreenH = if (state.isFloatingMode) windowVisibleHeightDp else screenHeightDp
+                val physicalScreenDp = (resources.displayMetrics.heightPixels / resources.displayMetrics.density).roundToInt()
+                val statusBarHeightDp = tryGetStatusBarHeightDp()
+                val navBarHeightDp = tryGetNavBarHeightDp()
+                val visibleNavBarHeightDp = tryGetVisibleNavBarHeightDp()
+                // 用物理屏幕高度减去状态栏，保证不同 Android 版本一致
+                val effectiveScreenH = if (state.isFloatingMode) physicalScreenDp - statusBarHeightDp else screenHeightDp
+                val windowVisibleHeightDp = effectiveScreenH
+                // 检测 config.screenHeightDp 是否已排除导航栏（非全屏 + 3按钮导航）
+                val navBarAlreadyExcluded = (physicalScreenDp - screenHeightDp) >= (navBarHeightDp + statusBarHeightDp - 3)
+                val floatingMinY = if (navBarAlreadyExcluded) 0 else visibleNavBarHeightDp
 
                 val isLandscape = !state.isFloatingMode && resources.configuration.screenWidthDp > screenHeightDp
                 val orientationHeight = SettingsPreferences.getKeyboardHeightDp(this@XimeInputMethodService, isLandscape)
@@ -668,9 +694,7 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                 } else 0
                 val navBarDp = navBarInsetDp.dp
                 val hasNavBar = navBarDp > 0.dp
-                // 浮动模式仍用资源值定位，确保键盘在导航栏上方
-                val floatingMinY = tryGetNavBarHeightDp()
-                
+
                 XimeTheme(darkTheme = isDarkTheme, themeId = state.themeId) {
                     Box(
                         modifier = Modifier
@@ -918,11 +942,11 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                                         val portraitWidth = minOf(screenW, screenH)
                                         val cardWidth = (portraitWidth * 0.85f).roundToInt()
                                         val halfMargin = ((screenW - cardWidth) / 2f).roundToInt()
-                                        val cappedKeyboardHeight = s.keyboardHeightDp.coerceAtMost((screenH * 8) / 10)
-                                        val cardH = (cappedKeyboardHeight * 0.85f).roundToInt() + 18
                                         val newX = (s.floatingOffsetX + dx).roundToInt().coerceIn(-halfMargin, halfMargin)
                                         val newY_raw = (s.floatingOffsetY + dy).roundToInt()
-                                        val newY = newY_raw.coerceIn(floatingMinY, maxOf(floatingMinY, screenH - cardH - 20))
+                                        val actualCardH = if (currentFloatingCardHeightDp > 0) currentFloatingCardHeightDp else currentEffectiveKeyboardHeight
+                                        val maxOffsetY = (screenH - actualCardH).coerceAtLeast(floatingMinY)
+                                        val newY = newY_raw.coerceIn(0, maxOffsetY)
                                         uiState.value = s.copy(
                                             floatingOffsetX = newX,
                                             floatingOffsetY = newY,
@@ -972,6 +996,12 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                                 viewModel = keyboardViewModel,
                                 state = kbState,
                                 callbacks = callbacks,
+                                onCardPositioned = { _: Int, top: Int, _: Int, bottom: Int ->
+                                    val cardHeightPx = bottom - top
+                                    if (cardHeightPx > 0) {
+                                        currentEffectiveKeyboardHeight = (cardHeightPx / density.density).roundToInt()
+                                    }
+                                },
                             )
                            }
                            if (state.showKeyboardResize) {
@@ -2496,8 +2526,8 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
     }
 
     private fun toggleFloatingMode(enabled: Boolean, navBarDp: Int = 0) {
-        val effectiveNavBarDp = navBarDp.coerceAtLeast(tryGetNavBarHeightDp())
-        Log.d(TAG, "toggleFloatingMode: $enabled navBarDp=$navBarDp effective=$effectiveNavBarDp")
+        val effectiveNavBarDp = navBarDp
+        Log.d(TAG, "toggleFloatingMode: $enabled navBarDp=$navBarDp")
         val isLandscape = resources.configuration.screenWidthDp > resources.configuration.screenHeightDp
         SettingsPreferences.setFloatingMode(this, enabled, isLandscape)
         SettingsPreferences.setFloatingMode(this, enabled, !isLandscape)
@@ -2510,7 +2540,9 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
         val halfMargin = maxOf(0, (screenW - cardWidth) / 2)
         val cappedKbH = SettingsPreferences.getKeyboardHeightDp(this, isLandscape).coerceAtMost((screenH * 8) / 10)
         val cardH = (cappedKbH * 0.85f).roundToInt() + 18
-        val effectiveH = if (enabled) screenH - tryGetStatusBarHeightDp() else screenH
+        // 用物理屏幕高度保证跨版本一致性
+        val physicalDp = (resources.displayMetrics.heightPixels / resources.displayMetrics.density).roundToInt()
+        val effectiveH = if (enabled) physicalDp - tryGetStatusBarHeightDp() else screenH
         val maxY = maxOf(effectiveNavBarDp, effectiveH - cardH - 20)
         val clampedX = loadedX.coerceIn(-halfMargin, halfMargin)
         val clampedY = loadedY.coerceIn(effectiveNavBarDp, maxY)
@@ -2562,16 +2594,20 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                     currentEffectiveKeyboardHeight = kbH + 18 + 50 + state.keyboardBottomPaddingDp
                 }
                 val density = resources.displayMetrics.density
-                val cardWidthPx = (decor.width * 0.85f).toInt()
-                val leftPaddingPx = ((decor.width - cardWidthPx) / 2f).toInt()
+                val inputViewWidthPx = decor.width
+                val statusBarHeightDp = tryGetStatusBarHeightDp()
+                val physicalHeightPx = resources.displayMetrics.heightPixels
+                val inputViewHeightPx = (physicalHeightPx - (statusBarHeightDp * density).toInt()).coerceAtLeast(1)
+                val cardWidthPx = (inputViewWidthPx * 0.85f).toInt()
+                val leftPaddingPx = ((inputViewWidthPx - cardWidthPx) / 2f).toInt()
                 val offsetXPx = (state.floatingOffsetX * density).toInt()
                 val cardHeightPx = (currentEffectiveKeyboardHeight * density).toInt()
                 val offsetYPx = (state.floatingOffsetY * density).toInt()
                 touchableRegion.set(
                     leftPaddingPx + offsetXPx,
-                    decor.height - cardHeightPx - offsetYPx,
+                    inputViewHeightPx - cardHeightPx - offsetYPx,
                     leftPaddingPx + offsetXPx + cardWidthPx,
-                    decor.height - offsetYPx
+                    inputViewHeightPx - offsetYPx
                 )
             }
         } else {
