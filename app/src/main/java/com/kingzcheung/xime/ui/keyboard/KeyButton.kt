@@ -81,6 +81,8 @@ fun KeyButton(
     onPress: (() -> Unit)? = null,
     /** 长按回调（含震动反馈），点按仍走 [onClick] */
     onLongClick: (() -> Unit)? = null,
+    /** 右上角角标文字（如 T9 数字键的数字浮标） */
+    badgeText: String? = null,
     shadowEnabled: Boolean = true,
     shadowElevation: Dp = 1.dp,
     shadowShapeRadius: Dp = 8.dp,
@@ -236,7 +238,7 @@ fun KeyButton(
                     )
                 }
             }
-            .padding(horizontal = 2.dp, vertical = 4.25.dp)
+//            .padding(horizontal = 2.dp, vertical = 4.25.dp)
             .then(shadowModifier)
             .clip(shadowShape)
             .background(
@@ -267,6 +269,20 @@ fun KeyButton(
                 modifier = Modifier.offset(y = (-14).dp)
             )
         }
+        
+        if (badgeText != null) {
+            Text(
+                text = badgeText,
+                color = textColor.copy(alpha = 0.5f),
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Normal,
+                textAlign = TextAlign.End,
+                maxLines = 1,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 6.dp, end = 6.dp)
+            )
+        }
     }
 }
 
@@ -291,6 +307,8 @@ fun SwipeableKeyButton(
     onLongPressSelect: ((String) -> Unit)? = null,
     longPressItems: List<String>? = null,
     longPressDrawableIds: List<Int>? = null,
+    /** 右上角角标文字（如 T9 数字键的数字浮标） */
+    badgeText: String? = null,
     fontSize: androidx.compose.ui.unit.TextUnit = androidx.compose.ui.unit.TextUnit.Unspecified,
     swipeFontSize: androidx.compose.ui.unit.TextUnit = 9.sp,
     shadowEnabled: Boolean = true,
@@ -529,7 +547,6 @@ fun SwipeableKeyButton(
             .onGloballyPositioned { coordinates ->
                 buttonBounds = coordinates.boundsInRoot()
             }
-            .padding(horizontal = 2.dp, vertical = 4.25.dp)
             .then(shadowModifier)
             .clip(shadowShape)
             .background(
@@ -572,6 +589,21 @@ fun SwipeableKeyButton(
                 textAlign = TextAlign.Center,
                 maxLines = 1,
                 modifier = Modifier.offset(y = (14).dp)
+            )
+        }
+        
+        if (badgeText != null) {
+            Text(
+                text = badgeText,
+                color = textColor.copy(alpha = 0.5f),
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Normal,
+                textAlign = TextAlign.End,
+                maxLines = 1,
+                lineHeight = 1.sp,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 6.dp, end = 6.dp)
             )
         }
     }
@@ -665,7 +697,7 @@ fun IconKeyButton(
                     }
                 )
             }
-            .padding(horizontal = 2.dp, vertical = 4.25.dp)
+//            .padding(horizontal = 2.dp, vertical = 4.25.dp)
             .then(shadowModifier)
             .clip(shadowShape)
             .background(
@@ -925,7 +957,7 @@ fun SwipeableIconKeyButton(
             .onGloballyPositioned { coordinates ->
                 buttonBounds = coordinates.boundsInRoot()
             }
-            .padding(horizontal = 2.dp, vertical = 4.25.dp)
+//            .padding(horizontal = 2.dp, vertical = 4.25.dp)
             .then(shadowModifier)
             .clip(shadowShape)
             .background(

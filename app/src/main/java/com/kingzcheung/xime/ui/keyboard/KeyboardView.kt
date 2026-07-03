@@ -383,12 +383,12 @@ fun KeyboardView(
                                     callbacks.onKeyPress("clear_composition", false)
                                 }
                                 "mode_change_symbol" -> viewModel.showOverlay(OverlayRoute.Symbol)
-                                "mode_change_t9" -> {
+                                "mode_change_number" -> {
                                     modeChangeTarget = KeyboardLayoutAction.SwitchToNumber
                                     SettingsPreferences.setModeChangeTargetIsNumber(context, true)
-                                    viewModel.setKeyboardState(KeyboardLayoutState.T9Pinyin)
+                                    viewModel.setKeyboardState(KeyboardLayoutState.Number)
                                 }
-                                "mode_change_t26" -> {
+                                "mode_change_common_symbol" -> {
                                     modeChangeTarget = KeyboardLayoutAction.SwitchToCommonSymbol
                                     SettingsPreferences.setModeChangeTargetIsNumber(context, false)
                                     viewModel.setKeyboardState(keyboardState.transition(

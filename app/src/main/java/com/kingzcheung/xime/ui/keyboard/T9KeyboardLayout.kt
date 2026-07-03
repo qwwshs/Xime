@@ -52,7 +52,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kingzcheung.xime.R
-import com.kingzcheung.xime.keyboard.KeyboardDimensions
 import com.kingzcheung.xime.rime.T9InputController
 import com.kingzcheung.xime.util.PermissionHelper
 import com.kingzcheung.xime.util.SubcharHelper
@@ -114,11 +113,12 @@ fun T9KeyboardLayout(
             T9InputController.DeleteResult.UNDO_COMMIT -> {
                 controller.clearRimeAndResend()
             }
+
             T9InputController.DeleteResult.NOT_CONSUMED -> {
                 onKeyPress("delete")
             }
-            T9InputController.DeleteResult.DELETED,
-            T9InputController.DeleteResult.UNDO_CHOICE -> {
+
+            T9InputController.DeleteResult.DELETED, T9InputController.DeleteResult.UNDO_CHOICE -> {
                 // 已消费
             }
         }
@@ -144,43 +144,30 @@ fun T9KeyboardLayout(
                 drawContent()
                 bubbleData?.let { drawSwipeBubble(it) }
             }
-            .padding(bottom = if (isFloatingMode) 0.dp else 10.dp)
-    ) {
-        Column(
+            .padding(bottom = if (isFloatingMode) 0.dp else 10.dp)) {
+        Row(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(start = 4.dp, end = 4.dp, bottom = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             // 内层包装：与 NumberKeyboardLayout 的 NumberRows 对齐
+            // 131
             Column(
                 modifier = Modifier
-                    .fillMaxWidth()
                     .fillMaxHeight()
-                    .padding(horizontal = 2.dp),
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                ) {
-            // 上部：左侧候选区 + 右侧 1-3 行
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(3f),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    .weight(1f),
             ) {
                 // 左侧候选区：外层统一圆角/阴影，内部候选项无缝排列
                 Box(
                     modifier = Modifier
                         .fillMaxHeight()
-                        .weight(1f)
+                        .weight(3f)
                         .padding(vertical = 2.dp)
                         .then(
                             if (shadowEnabled) {
                                 Modifier.shadow(
-                                    shadowElevation,
-                                    RoundedCornerShape(shadowShapeRadius)
+                                    shadowElevation, RoundedCornerShape(shadowShapeRadius)
                                 )
                             } else {
                                 Modifier
@@ -209,7 +196,9 @@ fun T9KeyboardLayout(
                                         onPress = { onKeyPressDown?.invoke(option.pinyin) },
                                         textColor = keyTextColor,
                                         backgroundColor = keyBackgroundColor,
-                                        modifier = Modifier.fillMaxWidth().weight(1f)
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .weight(1f)
                                     )
                                 } else {
                                     CandidateItem(
@@ -218,7 +207,9 @@ fun T9KeyboardLayout(
                                         onPress = { onKeyPressDown?.invoke(item) },
                                         textColor = keyTextColor,
                                         backgroundColor = keyBackgroundColor,
-                                        modifier = Modifier.fillMaxWidth().weight(1f)
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .weight(1f)
                                     )
                                 }
                             }
@@ -229,356 +220,344 @@ fun T9KeyboardLayout(
                             verticalArrangement = Arrangement.spacedBy(0.dp)
                         ) {
                             itemsIndexed(displayItems) { index, _ ->
-                                if (showCandidates) {
-                                    val option = controller.firstOptions[index]
-                                    CandidateItem(
-                                        text = option.pinyin,
-                                        onClick = { controller.onChoiceSelected(option) },
-                                        onPress = { onKeyPressDown?.invoke(option.pinyin) },
-                                        textColor = keyTextColor,
-                                        backgroundColor = keyBackgroundColor,
-                                        modifier = Modifier.fillMaxWidth().height(32.dp)
-                                    )
-                                } else {
-                                    val item = displayItems[index]
-                                    CandidateItem(
-                                        text = item,
-                                        onClick = { onKeyPress(item) },
-                                        onPress = { onKeyPressDown?.invoke(item) },
-                                        textColor = keyTextColor,
-                                        backgroundColor = keyBackgroundColor,
-                                        modifier = Modifier.fillMaxWidth().height(32.dp)
-                                    )
-                                }
+                                val option = controller.firstOptions[index]
+                                CandidateItem(
+                                    text = option.pinyin,
+                                    onClick = { controller.onChoiceSelected(option) },
+                                    onPress = { onKeyPressDown?.invoke(option.pinyin) },
+                                    textColor = keyTextColor,
+                                    backgroundColor = keyBackgroundColor,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(32.dp)
+                                )
                             }
                         }
                     }
                 }
 
-                // 右侧 1-3 行
-                Column(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .weight(4f),
-                ) {
-                    // 第1行
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
-                    ) {
-                        NineKeyButton(
-                            digit = "1",
-                            letters = "分词",
-                            onClick = { controller.onDigitPressed("1") },
-                            backgroundColor = keyBackgroundColor,
-                            textColor = keyTextColor,
-                            modifier = Modifier.weight(1f),
-                            onPress = { onKeyPressDown?.invoke("1") },
-                            shadowEnabled = shadowEnabled,
-                            shadowElevation = shadowElevation,
-                            shadowShapeRadius = shadowShapeRadius,
-                        )
-                        T9DigitKey(
-                            digit = "2",
-                            letters = "ABC",
-                            longPressItems = listOf("A", "B", "C"),
-                            onClick = { controller.onDigitPressed("2") },
-                            onLongPressSelect = { letter ->
-                                controller.clearAll()
-                                onKeyPress(letter)
-                            },
-                            onSwipeStateChange = { state, bounds ->
-                                if (state.isPressed && !state.isLongPress && state.pressedText != null) {
-                                    // 普通点按不显示 press 气泡，避免误现字母选择
-                                } else {
-                                    processSwipeState(state, bounds)
-                                }
-                            },
-                            backgroundColor = keyBackgroundColor,
-                            textColor = keyTextColor,
-                            modifier = Modifier.weight(1f),
-                            onPress = { onKeyPressDown?.invoke("2") },
-                            shadowEnabled = shadowEnabled,
-                            shadowElevation = shadowElevation,
-                            shadowShapeRadius = shadowShapeRadius,
-                        )
-                        T9DigitKey(
-                            digit = "3",
-                            letters = "DEF",
-                            longPressItems = listOf("D", "E", "F"),
-                            onClick = { controller.onDigitPressed("3") },
-                            onLongPressSelect = { letter ->
-                                controller.clearAll()
-                                onKeyPress(letter)
-                            },
-                            onSwipeStateChange = { state, bounds ->
-                                if (state.isPressed && !state.isLongPress && state.pressedText != null) {
-                                    // 普通点按不显示 press 气泡
-                                } else {
-                                    processSwipeState(state, bounds)
-                                }
-                            },
-                            backgroundColor = keyBackgroundColor,
-                            textColor = keyTextColor,
-                            modifier = Modifier.weight(1f),
-                            onPress = { onKeyPressDown?.invoke("3") },
-                            shadowEnabled = shadowEnabled,
-                            shadowElevation = shadowElevation,
-                            shadowShapeRadius = shadowShapeRadius,
-                        )
-                        SwipeableIconKeyButton(
-                            icon = rememberVectorPainter(Icons.AutoMirrored.Filled.Backspace),
-                            onClick = { handleDelete() },
-                            backgroundColor = specialKeyBackgroundColor,
-                            iconColor = keyTextColor,
-                            modifier = Modifier.weight(1f),
-                            swipeText = "清空",
-                            onSwipe = { onKeyPress("clear_composition") },
-                            onPress = { onKeyPressDown?.invoke("delete") },
-                            swipeUpLabel = "上滑清空",
-                            swipeDownLabel = "下滑撤回",
-                            onSwipeUp = { onKeyPress("clear_all") },
-                            onSwipeDown = { onKeyPress("undo_clear") },
-                            onSwipeLeft = { onKeyPress("clear_composition") },
-                            onSwipeStateChange = { state, bounds -> processSwipeState(state, bounds) },
-                            shadowEnabled = shadowEnabled,
-                            shadowElevation = shadowElevation,
-                            shadowShapeRadius = shadowShapeRadius,
-                        )
-                    }
-
-                    // 第2行
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
-                    ) {
-                        T9DigitKey(
-                            digit = "4",
-                            letters = "GHI",
-                            longPressItems = listOf("G", "H", "I"),
-                            onClick = { controller.onDigitPressed("4") },
-                            onLongPressSelect = { letter ->
-                                controller.clearAll()
-                                onKeyPress(letter)
-                            },
-                            onSwipeStateChange = { state, bounds ->
-                                if (state.isPressed && !state.isLongPress && state.pressedText != null) {
-                                    // 普通点按不显示 press 气泡
-                                } else {
-                                    processSwipeState(state, bounds)
-                                }
-                            },
-                            backgroundColor = keyBackgroundColor,
-                            textColor = keyTextColor,
-                            modifier = Modifier.weight(1f),
-                            onPress = { onKeyPressDown?.invoke("4") },
-                            shadowEnabled = shadowEnabled,
-                            shadowElevation = shadowElevation,
-                            shadowShapeRadius = shadowShapeRadius,
-                        )
-                        T9DigitKey(
-                            digit = "5",
-                            letters = "JKL",
-                            longPressItems = listOf("J", "K", "L"),
-                            onClick = { controller.onDigitPressed("5") },
-                            onLongPressSelect = { letter ->
-                                controller.clearAll()
-                                onKeyPress(letter)
-                            },
-                            onSwipeStateChange = { state, bounds ->
-                                if (state.isPressed && !state.isLongPress && state.pressedText != null) {
-                                    // 普通点按不显示 press 气泡
-                                } else {
-                                    processSwipeState(state, bounds)
-                                }
-                            },
-                            backgroundColor = keyBackgroundColor,
-                            textColor = keyTextColor,
-                            modifier = Modifier.weight(1f),
-                            onPress = { onKeyPressDown?.invoke("5") },
-                            shadowEnabled = shadowEnabled,
-                            shadowElevation = shadowElevation,
-                            shadowShapeRadius = shadowShapeRadius,
-                        )
-                        T9DigitKey(
-                            digit = "6",
-                            letters = "MNO",
-                            longPressItems = listOf("M", "N", "O"),
-                            onClick = { controller.onDigitPressed("6") },
-                            onLongPressSelect = { letter ->
-                                controller.clearAll()
-                                onKeyPress(letter)
-                            },
-                            onSwipeStateChange = { state, bounds ->
-                                if (state.isPressed && !state.isLongPress && state.pressedText != null) {
-                                    // 普通点按不显示 press 气泡
-                                } else {
-                                    processSwipeState(state, bounds)
-                                }
-                            },
-                            backgroundColor = keyBackgroundColor,
-                            textColor = keyTextColor,
-                            modifier = Modifier.weight(1f),
-                            onPress = { onKeyPressDown?.invoke("6") },
-                            shadowEnabled = shadowEnabled,
-                            shadowElevation = shadowElevation,
-                            shadowShapeRadius = shadowShapeRadius,
-                        )
-                        ResetKey(
-                            onClick = { controller.clearAll() },
-                            onPress = { onKeyPressDown?.invoke("clear") },
-                            backgroundColor = specialKeyBackgroundColor,
-                            textColor = keyTextColor,
-                            modifier = Modifier.weight(1f),
-                            shadowEnabled = shadowEnabled,
-                            shadowElevation = shadowElevation,
-                            shadowShapeRadius = shadowShapeRadius,
-                        )
-                    }
-
-                    // 第3行
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
-                    ) {
-                        T9DigitKey(
-                            digit = "7",
-                            letters = "PQRS",
-                            longPressItems = listOf("P", "Q", "R", "S"),
-                            onClick = { controller.onDigitPressed("7") },
-                            onLongPressSelect = { letter ->
-                                controller.clearAll()
-                                onKeyPress(letter)
-                            },
-                            onSwipeStateChange = { state, bounds ->
-                                if (state.isPressed && !state.isLongPress && state.pressedText != null) {
-                                    // 普通点按不显示 press 气泡
-                                } else {
-                                    processSwipeState(state, bounds)
-                                }
-                            },
-                            backgroundColor = keyBackgroundColor,
-                            textColor = keyTextColor,
-                            modifier = Modifier.weight(1f),
-                            onPress = { onKeyPressDown?.invoke("7") },
-                            shadowEnabled = shadowEnabled,
-                            shadowElevation = shadowElevation,
-                            shadowShapeRadius = shadowShapeRadius,
-                        )
-                        T9DigitKey(
-                            digit = "8",
-                            letters = "TUV",
-                            longPressItems = listOf("T", "U", "V"),
-                            onClick = { controller.onDigitPressed("8") },
-                            onLongPressSelect = { letter ->
-                                controller.clearAll()
-                                onKeyPress(letter)
-                            },
-                            onSwipeStateChange = { state, bounds ->
-                                if (state.isPressed && !state.isLongPress && state.pressedText != null) {
-                                    // 普通点按不显示 press 气泡
-                                } else {
-                                    processSwipeState(state, bounds)
-                                }
-                            },
-                            backgroundColor = keyBackgroundColor,
-                            textColor = keyTextColor,
-                            modifier = Modifier.weight(1f),
-                            onPress = { onKeyPressDown?.invoke("8") },
-                            shadowEnabled = shadowEnabled,
-                            shadowElevation = shadowElevation,
-                            shadowShapeRadius = shadowShapeRadius,
-                        )
-                        T9DigitKey(
-                            digit = "9",
-                            letters = "WXYZ",
-                            longPressItems = listOf("W", "X", "Y", "Z"),
-                            onClick = { controller.onDigitPressed("9") },
-                            onLongPressSelect = { letter ->
-                                controller.clearAll()
-                                onKeyPress(letter)
-                            },
-                            onSwipeStateChange = { state, bounds ->
-                                if (state.isPressed && !state.isLongPress && state.pressedText != null) {
-                                    // 普通点按不显示 press 气泡
-                                } else {
-                                    processSwipeState(state, bounds)
-                                }
-                            },
-                            backgroundColor = keyBackgroundColor,
-                            textColor = keyTextColor,
-                            modifier = Modifier.weight(1f),
-                            onPress = { onKeyPressDown?.invoke("9") },
-                            shadowEnabled = shadowEnabled,
-                            shadowElevation = shadowElevation,
-                            shadowShapeRadius = shadowShapeRadius,
-                        )
-                        KeyButton(
-                            text = "0",
-                            onClick = { onKeyPress("0") },
-                            backgroundColor = specialKeyBackgroundColor,
-                            textColor = keyTextColor,
-                            modifier = Modifier.weight(1f),
-                            onPress = { onKeyPressDown?.invoke("0") },
-                            shadowEnabled = shadowEnabled,
-                            shadowElevation = shadowElevation,
-                            shadowShapeRadius = shadowShapeRadius,
-                        )
-                    }
-                }
-            }
-
-            // 第4行底部行
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-            ) {
                 KeyButton(
                     text = "符号",
                     onClick = { onKeyPress("symbol") },
                     backgroundColor = specialKeyBackgroundColor,
                     textColor = keyTextColor,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.padding(2.dp).weight(1f),
                     onPress = { onKeyPressDown?.invoke("symbol") },
                     shadowEnabled = shadowEnabled,
                     shadowElevation = shadowElevation,
                     shadowShapeRadius = shadowShapeRadius,
                 )
-                KeyButton(
-                    text = "123",
-                    onClick = { onKeyPress("number") },
+
+            }
+            Column(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .weight(3f),
+            ) {
+                // 第1行
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                ) {
+                    NineKeyButton(
+                        digit = "1",
+                        letters = "分词",
+                        onClick = { controller.onDigitPressed("1") },
+                        backgroundColor = keyBackgroundColor,
+                        textColor = keyTextColor,
+                        modifier = Modifier.padding(2.dp).weight(1f),
+                        onPress = { onKeyPressDown?.invoke("1") },
+                        shadowEnabled = shadowEnabled,
+                        shadowElevation = shadowElevation,
+                        shadowShapeRadius = shadowShapeRadius,
+                    )
+
+                    T9DigitKey(
+                        digit = "2",
+                        letters = "ABC",
+                        longPressItems = listOf("A", "B", "C"),
+                        onClick = { controller.onDigitPressed("2") },
+                        onLongPressSelect = { letter ->
+                            controller.clearAll()
+                            onKeyPress(letter)
+                        },
+                        onSwipeStateChange = { state, bounds ->
+                            if (state.isPressed && !state.isLongPress && state.pressedText != null) {
+                                // 普通点按不显示 press 气泡，避免误现字母选择
+                            } else {
+                                processSwipeState(state, bounds)
+                            }
+                        },
+                        backgroundColor = keyBackgroundColor,
+                        textColor = keyTextColor,
+                        modifier = Modifier.padding(2.dp).weight(1f),
+                        onPress = { onKeyPressDown?.invoke("2") },
+                        shadowEnabled = shadowEnabled,
+                        shadowElevation = shadowElevation,
+                        shadowShapeRadius = shadowShapeRadius,
+                    )
+                    T9DigitKey(
+                        digit = "3",
+                        letters = "DEF",
+                        longPressItems = listOf("D", "E", "F"),
+                        onClick = { controller.onDigitPressed("3") },
+                        onLongPressSelect = { letter ->
+                            controller.clearAll()
+                            onKeyPress(letter)
+                        },
+                        onSwipeStateChange = { state, bounds ->
+                            if (state.isPressed && !state.isLongPress && state.pressedText != null) {
+                                // 普通点按不显示 press 气泡
+                            } else {
+                                processSwipeState(state, bounds)
+                            }
+                        },
+                        backgroundColor = keyBackgroundColor,
+                        textColor = keyTextColor,
+                        modifier = Modifier.padding(2.dp).weight(1f),
+                        onPress = { onKeyPressDown?.invoke("3") },
+                        shadowEnabled = shadowEnabled,
+                        shadowElevation = shadowElevation,
+                        shadowShapeRadius = shadowShapeRadius,
+                    )
+
+                }
+
+                // 第2行
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                ) {
+                    T9DigitKey(
+                        digit = "4",
+                        letters = "GHI",
+                        longPressItems = listOf("G", "H", "I"),
+                        onClick = { controller.onDigitPressed("4") },
+                        onLongPressSelect = { letter ->
+                            controller.clearAll()
+                            onKeyPress(letter)
+                        },
+                        onSwipeStateChange = { state, bounds ->
+                            if (state.isPressed && !state.isLongPress && state.pressedText != null) {
+                                // 普通点按不显示 press 气泡
+                            } else {
+                                processSwipeState(state, bounds)
+                            }
+                        },
+                        backgroundColor = keyBackgroundColor,
+                        textColor = keyTextColor,
+                        modifier = Modifier.padding(2.dp).weight(1f),
+                        onPress = { onKeyPressDown?.invoke("4") },
+                        shadowEnabled = shadowEnabled,
+                        shadowElevation = shadowElevation,
+                        shadowShapeRadius = shadowShapeRadius,
+                    )
+                    T9DigitKey(
+                        digit = "5",
+                        letters = "JKL",
+                        longPressItems = listOf("J", "K", "L"),
+                        onClick = { controller.onDigitPressed("5") },
+                        onLongPressSelect = { letter ->
+                            controller.clearAll()
+                            onKeyPress(letter)
+                        },
+                        onSwipeStateChange = { state, bounds ->
+                            if (state.isPressed && !state.isLongPress && state.pressedText != null) {
+                                // 普通点按不显示 press 气泡
+                            } else {
+                                processSwipeState(state, bounds)
+                            }
+                        },
+                        backgroundColor = keyBackgroundColor,
+                        textColor = keyTextColor,
+                        modifier = Modifier.padding(2.dp).weight(1f),
+                        onPress = { onKeyPressDown?.invoke("5") },
+                        shadowEnabled = shadowEnabled,
+                        shadowElevation = shadowElevation,
+                        shadowShapeRadius = shadowShapeRadius,
+                    )
+                    T9DigitKey(
+                        digit = "6",
+                        letters = "MNO",
+                        longPressItems = listOf("M", "N", "O"),
+                        onClick = { controller.onDigitPressed("6") },
+                        onLongPressSelect = { letter ->
+                            controller.clearAll()
+                            onKeyPress(letter)
+                        },
+                        onSwipeStateChange = { state, bounds ->
+                            if (state.isPressed && !state.isLongPress && state.pressedText != null) {
+                                // 普通点按不显示 press 气泡
+                            } else {
+                                processSwipeState(state, bounds)
+                            }
+                        },
+                        backgroundColor = keyBackgroundColor,
+                        textColor = keyTextColor,
+                        modifier = Modifier.padding(2.dp).weight(1f),
+                        onPress = { onKeyPressDown?.invoke("6") },
+                        shadowEnabled = shadowEnabled,
+                        shadowElevation = shadowElevation,
+                        shadowShapeRadius = shadowShapeRadius,
+                    )
+
+                }
+
+                // 第3行
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                ) {
+                    T9DigitKey(
+                        digit = "7",
+                        letters = "PQRS",
+                        longPressItems = listOf("P", "Q", "R", "S"),
+                        onClick = { controller.onDigitPressed("7") },
+                        onLongPressSelect = { letter ->
+                            controller.clearAll()
+                            onKeyPress(letter)
+                        },
+                        onSwipeStateChange = { state, bounds ->
+                            if (state.isPressed && !state.isLongPress && state.pressedText != null) {
+                                // 普通点按不显示 press 气泡
+                            } else {
+                                processSwipeState(state, bounds)
+                            }
+                        },
+                        backgroundColor = keyBackgroundColor,
+                        textColor = keyTextColor,
+                        modifier = Modifier.padding(2.dp).weight(1f),
+                        onPress = { onKeyPressDown?.invoke("7") },
+                        shadowEnabled = shadowEnabled,
+                        shadowElevation = shadowElevation,
+                        shadowShapeRadius = shadowShapeRadius,
+                    )
+                    T9DigitKey(
+                        digit = "8",
+                        letters = "TUV",
+                        longPressItems = listOf("T", "U", "V"),
+                        onClick = { controller.onDigitPressed("8") },
+                        onLongPressSelect = { letter ->
+                            controller.clearAll()
+                            onKeyPress(letter)
+                        },
+                        onSwipeStateChange = { state, bounds ->
+                            if (state.isPressed && !state.isLongPress && state.pressedText != null) {
+                                // 普通点按不显示 press 气泡
+                            } else {
+                                processSwipeState(state, bounds)
+                            }
+                        },
+                        backgroundColor = keyBackgroundColor,
+                        textColor = keyTextColor,
+                        modifier = Modifier.padding(2.dp).weight(1f),
+                        onPress = { onKeyPressDown?.invoke("8") },
+                        shadowEnabled = shadowEnabled,
+                        shadowElevation = shadowElevation,
+                        shadowShapeRadius = shadowShapeRadius,
+                    )
+                    T9DigitKey(
+                        digit = "9",
+                        letters = "WXYZ",
+                        longPressItems = listOf("W", "X", "Y", "Z"),
+                        onClick = { controller.onDigitPressed("9") },
+                        onLongPressSelect = { letter ->
+                            controller.clearAll()
+                            onKeyPress(letter)
+                        },
+                        onSwipeStateChange = { state, bounds ->
+                            if (state.isPressed && !state.isLongPress && state.pressedText != null) {
+                                // 普通点按不显示 press 气泡
+                            } else {
+                                processSwipeState(state, bounds)
+                            }
+                        },
+                        backgroundColor = keyBackgroundColor,
+                        textColor = keyTextColor,
+                        modifier = Modifier.padding(2.dp).weight(1f),
+                        onPress = { onKeyPressDown?.invoke("9") },
+                        shadowEnabled = shadowEnabled,
+                        shadowElevation = shadowElevation,
+                        shadowShapeRadius = shadowShapeRadius,
+                    )
+                }
+                Row(modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),) {
+                    KeyButton(
+                        text = "123",
+                        onClick = { onKeyPress("number") },
+                        backgroundColor = specialKeyBackgroundColor,
+                        textColor = keyTextColor,
+                        modifier = Modifier.padding(2.dp).weight(1f),
+                        onPress = { onKeyPressDown?.invoke("mode_change") },
+                        shadowEnabled = shadowEnabled,
+                        shadowElevation = shadowElevation,
+                        shadowShapeRadius = shadowShapeRadius,
+                    )
+                    T9SpaceKey(
+                        schemaName = uiState.schemaName,
+                        isSttEnabled = uiState.isSttEnabled,
+                        onKeyPress = onKeyPress,
+                        onKeyPressDown = onKeyPressDown,
+                        onVoiceModeChange = callbacks.onVoiceModeChange,
+                        backgroundColor = keyBackgroundColor,
+                        textColor = keyTextColor,
+                        modifier = Modifier.padding(2.dp).weight(1.8f),
+                        shadowEnabled = shadowEnabled,
+                        shadowElevation = shadowElevation,
+                        shadowShapeRadius = shadowShapeRadius,
+                    )
+                    IconKeyButton(
+                        icon = rememberVectorPainter(Icons.Default.Language),
+                        onClick = { onKeyPress("ime_switch") },
+                        backgroundColor = keyBackgroundColor,
+                        iconColor = keyTextColor,
+                        modifier = Modifier.padding(2.dp).weight(1f),
+                        onPress = { onKeyPressDown?.invoke("ime_switch") },
+                        shadowEnabled = shadowEnabled,
+                        shadowElevation = shadowElevation,
+                        shadowShapeRadius = shadowShapeRadius,
+                    )
+                }
+            }
+            Column(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .weight(1f),
+            ) {
+                SwipeableIconKeyButton(
+                    icon = rememberVectorPainter(Icons.AutoMirrored.Filled.Backspace),
+                    onClick = { handleDelete() },
+                    backgroundColor = specialKeyBackgroundColor,
+                    iconColor = keyTextColor,
+                    modifier = Modifier.padding(2.dp).weight(1f),
+                    swipeText = "清空",
+                    onSwipe = { onKeyPress("clear_composition") },
+                    onPress = { onKeyPressDown?.invoke("delete") },
+                    swipeUpLabel = "上滑清空",
+                    swipeDownLabel = "下滑撤回",
+                    onSwipeUp = { onKeyPress("clear_all") },
+                    onSwipeDown = { onKeyPress("undo_clear") },
+                    onSwipeLeft = { onKeyPress("clear_composition") },
+                    onSwipeStateChange = { state, bounds ->
+                        processSwipeState(
+                            state, bounds
+                        )
+                    },
+                    shadowEnabled = shadowEnabled,
+                    shadowElevation = shadowElevation,
+                    shadowShapeRadius = shadowShapeRadius,
+                )
+                ResetKey(
+                    onClick = { controller.clearAll() },
+                    onPress = { onKeyPressDown?.invoke("clear") },
                     backgroundColor = specialKeyBackgroundColor,
                     textColor = keyTextColor,
-                    modifier = Modifier.weight(1f),
-                    onPress = { onKeyPressDown?.invoke("mode_change") },
-                    shadowEnabled = shadowEnabled,
-                    shadowElevation = shadowElevation,
-                    shadowShapeRadius = shadowShapeRadius,
-                )
-                T9SpaceKey(
-                    schemaName = uiState.schemaName,
-                    isSttEnabled = uiState.isSttEnabled,
-                    onKeyPress = onKeyPress,
-                    onKeyPressDown = onKeyPressDown,
-                    onVoiceModeChange = callbacks.onVoiceModeChange,
-                    backgroundColor = keyBackgroundColor,
-                    textColor = keyTextColor,
-                    modifier = Modifier.weight(1.8f),
-                    shadowEnabled = shadowEnabled,
-                    shadowElevation = shadowElevation,
-                    shadowShapeRadius = shadowShapeRadius,
-                )
-                IconKeyButton(
-                    icon = rememberVectorPainter(Icons.Default.Language),
-                    onClick = { onKeyPress("ime_switch") },
-                    backgroundColor = keyBackgroundColor,
-                    iconColor = keyTextColor,
-                    modifier = Modifier.weight(1f),
-                    onPress = { onKeyPressDown?.invoke("ime_switch") },
+                    modifier = Modifier.padding(2.dp).weight(1f),
                     shadowEnabled = shadowEnabled,
                     shadowElevation = shadowElevation,
                     shadowShapeRadius = shadowShapeRadius,
@@ -588,14 +567,12 @@ fun T9KeyboardLayout(
                     onClick = { onKeyPress("enter") },
                     backgroundColor = specialKeyBackgroundColor,
                     textColor = keyTextColor,
-                    modifier = Modifier.weight(1.2f),
+                    modifier = Modifier.padding(2.dp).weight(2f),
                     onPress = { onKeyPressDown?.invoke("enter") },
                     shadowEnabled = shadowEnabled,
                     shadowElevation = shadowElevation,
                     shadowShapeRadius = shadowShapeRadius,
                 )
-            }
-                }
             }
         }
     }
@@ -628,36 +605,22 @@ private fun T9DigitKey(
     val currentOnLongPressSelect by rememberUpdatedState(onLongPressSelect)
     val currentOnPress by rememberUpdatedState(onPress)
 
-    Box(
-        modifier = modifier
-    ) {
-        SwipeableKeyButton(
-            text = letters,
-            onClick = { currentOnClick() },
-            backgroundColor = backgroundColor,
-            textColor = textColor,
-            fontSize = 16.sp,
-            modifier = Modifier.fillMaxSize(),
-            onPress = { currentOnPress?.invoke() },
-            longPressItems = longPressItems,
-            onLongPressSelect = { letter -> currentOnLongPressSelect?.invoke(letter) },
-            onSwipeStateChange = onSwipeStateChange,
-            shadowEnabled = shadowEnabled,
-            shadowElevation = shadowElevation,
-            shadowShapeRadius = shadowShapeRadius,
-        )
-        // 右上角数字标签
-        Text(
-            text = digit,
-            color = textColor.copy(alpha = 0.5f),
-            fontSize = 10.sp,
-            fontWeight = FontWeight.Normal,
-            textAlign = TextAlign.End,
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(top = 6.dp, end = 6.dp)
-        )
-    }
+    SwipeableKeyButton(
+        text = letters,
+        onClick = { currentOnClick() },
+        backgroundColor = backgroundColor,
+        textColor = textColor,
+        fontSize = 16.sp,
+        modifier = modifier,
+        onPress = { currentOnPress?.invoke() },
+        longPressItems = longPressItems,
+        onLongPressSelect = { letter -> currentOnLongPressSelect?.invoke(letter) },
+        onSwipeStateChange = onSwipeStateChange,
+        badgeText = digit,
+        shadowEnabled = shadowEnabled,
+        shadowElevation = shadowElevation,
+        shadowShapeRadius = shadowShapeRadius,
+    )
 }
 
 // ─── 子组件 ───────────────────────────────────────────────────────────
@@ -682,17 +645,13 @@ private fun CandidateItem(
                 else Color.Transparent
             )
             .pointerInput(Unit) {
-                detectTapGestures(
-                    onPress = {
-                        isPressed = true
-                        currentOnPress?.invoke()
-                        tryAwaitRelease()
-                        isPressed = false
-                    },
-                    onTap = { currentOnClick() }
-                )
-            },
-        contentAlignment = Alignment.Center
+                detectTapGestures(onPress = {
+                    isPressed = true
+                    currentOnPress?.invoke()
+                    tryAwaitRelease()
+                    isPressed = false
+                }, onTap = { currentOnClick() })
+            }, contentAlignment = Alignment.Center
     ) {
         Text(
             text = text,
@@ -719,31 +678,18 @@ private fun NineKeyButton(
     shadowElevation: Dp = 1.dp,
     shadowShapeRadius: Dp = 8.dp,
 ) {
-    Box(
-        modifier = modifier
-    ) {
-        KeyButton(
-            text = letters,
-            onClick = onClick,
-            backgroundColor = backgroundColor,
-            textColor = textColor,
-            modifier = Modifier.fillMaxSize(),
-            onPress = onPress,
-            shadowEnabled = shadowEnabled,
-            shadowElevation = shadowElevation,
-            shadowShapeRadius = shadowShapeRadius,
-        )
-        Text(
-            text = digit,
-            color = textColor.copy(alpha = 0.5f),
-            fontSize = 10.sp,
-            fontWeight = FontWeight.Normal,
-            textAlign = TextAlign.End,
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(top = 6.dp, end = 6.dp)
-        )
-    }
+    KeyButton(
+        text = letters,
+        onClick = onClick,
+        backgroundColor = backgroundColor,
+        textColor = textColor,
+        modifier = modifier,
+        onPress = onPress,
+        badgeText = digit,
+        shadowEnabled = shadowEnabled,
+        shadowElevation = shadowElevation,
+        shadowShapeRadius = shadowShapeRadius,
+    )
 }
 
 /** 重输键 —— 文本在上、图标在下，参考功能键风格 */
@@ -768,23 +714,19 @@ private fun ResetKey(
 
     Box(
         modifier = modifier
-            .fillMaxHeight()
-            .padding(horizontal = 2.dp, vertical = 4.25.dp)
+            .fillMaxSize()
+//            .padding(horizontal = 2.dp, vertical = 4.25.dp)
             .then(shadowModifier)
             .clip(shape)
             .background(if (isPressed) backgroundColor.copy(alpha = 0.7f) else backgroundColor)
             .pointerInput(Unit) {
-                detectTapGestures(
-                    onPress = {
-                        isPressed = true
-                        currentOnPress?.invoke()
-                        tryAwaitRelease()
-                        isPressed = false
-                    },
-                    onTap = { currentOnClick() }
-                )
-            },
-        contentAlignment = Alignment.Center
+                detectTapGestures(onPress = {
+                    isPressed = true
+                    currentOnPress?.invoke()
+                    tryAwaitRelease()
+                    isPressed = false
+                }, onTap = { currentOnClick() })
+            }, contentAlignment = Alignment.Center
     ) {
         Icon(
             imageVector = Icons.Default.Refresh,
@@ -833,7 +775,7 @@ private fun T9SpaceKey(
     Box(
         modifier = modifier
             .fillMaxHeight()
-            .padding(horizontal = 2.dp, vertical = 4.25.dp)
+//            .padding(horizontal = 2.dp, vertical = 4.25.dp)
             .then(shadowModifier)
             .clip(shape)
             .background(backgroundColor)
@@ -848,7 +790,9 @@ private fun T9SpaceKey(
                         longPressTriggered = true
                         if (isSttEnabled) {
                             if (!PermissionHelper.hasRecordAudioPermission(context)) {
-                                Toast.makeText(context, "需要麦克风权限才能使用语音输入", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(
+                                    context, "需要麦克风权限才能使用语音输入", Toast.LENGTH_SHORT
+                                ).show()
                                 PermissionHelper.requestRecordAudioPermission(context)
                             } else {
                                 currentOnVoiceModeChange?.invoke(true)
@@ -866,8 +810,7 @@ private fun T9SpaceKey(
                         currentOnKeyPress("space")
                     }
                 }
-            },
-        contentAlignment = Alignment.Center
+            }, contentAlignment = Alignment.Center
     ) {
         Text(
             text = schemaName,
