@@ -1,5 +1,6 @@
 package com.kingzcheung.xime.ui.settings
 
+import android.graphics.Typeface
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -18,11 +19,14 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -36,6 +40,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -46,7 +51,19 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import com.kingzcheung.xime.settings.SchemaManager
+import io.github.rosemoe.sora.event.ContentChangeEvent
+import io.github.rosemoe.sora.langs.textmate.TextMateColorScheme
+import io.github.rosemoe.sora.langs.textmate.TextMateLanguage
+import io.github.rosemoe.sora.langs.textmate.registry.FileProviderRegistry
+import io.github.rosemoe.sora.langs.textmate.registry.GrammarRegistry
+import io.github.rosemoe.sora.langs.textmate.registry.ThemeRegistry
+import io.github.rosemoe.sora.langs.textmate.registry.model.ThemeModel
+import io.github.rosemoe.sora.langs.textmate.registry.provider.AssetsFileResolver
+import io.github.rosemoe.sora.widget.CodeEditor
+import io.github.rosemoe.sora.widget.component.Magnifier
+import org.eclipse.tm4e.core.registry.IThemeSource
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -67,6 +84,7 @@ fun RimeFileBrowserContent(onBack: () -> Unit) {
     val rootDir = remember { SchemaManager.getRimeDir(context) }
     var currentDir by remember { mutableStateOf(rootDir) }
     var entries by remember { mutableStateOf(listOf<FileEntry>()) }
+    var viewingFile by remember { mutableStateOf<File?>(null) }
     var showDeleteDialog by remember { mutableStateOf<File?>(null) }
 
     fun refresh() {
@@ -76,16 +94,26 @@ fun RimeFileBrowserContent(onBack: () -> Unit) {
             ?: emptyList()
     }
 
-    LaunchedEffect(currentDir) { refresh() }
-
     fun deleteFile(file: File) {
         if (file.isDirectory) {
             file.deleteRecursively()
         } else {
             file.delete()
         }
+        showDeleteDialog = null
         refresh()
         Toast.makeText(context, "已删除: ${file.name}", Toast.LENGTH_SHORT).show()
+    }
+
+    LaunchedEffect(currentDir) { refresh() }
+
+    if (viewingFile != null) {
+        YamlEditor(
+            file = viewingFile!!,
+            onDeleted = { viewingFile = null },
+            onBack = { viewingFile = null }
+        )
+        return
     }
 
     Scaffold(
@@ -142,9 +170,10 @@ fun RimeFileBrowserContent(onBack: () -> Unit) {
                 items(entries, key = { currentDir.absolutePath + "/" + it.name }) { entry ->
                     FileEntryRow(
                         entry = entry,
-                        onClick = {
+                        onView = { viewingFile = entry.file },
+                        onDelete = {
                             if (entry.isDirectory) {
-                                currentDir = entry.file
+                                showDeleteDialog = entry.file
                             } else {
                                 showDeleteDialog = entry.file
                             }
@@ -156,15 +185,13 @@ fun RimeFileBrowserContent(onBack: () -> Unit) {
     }
 
     showDeleteDialog?.let { file ->
+        val isDir = file.isDirectory
         AlertDialog(
             onDismissRequest = { showDeleteDialog = null },
-            title = { Text("删除文件") },
-            text = { Text("确定删除「${file.name}」？") },
+            title = { Text(if (isDir) "删除目录" else "删除文件") },
+            text = { Text("确定删除「${file.name}」？${if (isDir) "\n目录内的所有内容将被删除。" else ""}") },
             confirmButton = {
-                TextButton(onClick = {
-                    deleteFile(file)
-                    showDeleteDialog = null
-                }) {
+                TextButton(onClick = { deleteFile(file) }) {
                     Text("删除", color = MaterialTheme.colorScheme.error)
                 }
             },
@@ -177,14 +204,180 @@ fun RimeFileBrowserContent(onBack: () -> Unit) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun YamlEditor(file: File, onDeleted: () -> Unit, onBack: () -> Unit) {
+    val context = LocalContext.current
+    var isEditing by remember { mutableStateOf(false) }
+    var isModified by remember { mutableStateOf(false) }
+    var editor by remember { mutableStateOf<CodeEditor?>(null) }
+    var textLength by remember { mutableIntStateOf(0) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+
+    val initialContent = remember(file) {
+        try {
+            val text = file.readText(Charsets.UTF_8)
+            if (text.startsWith('\uFEFF')) text.substring(1) else text
+        } catch (_: Exception) {
+            ""
+        }
+    }
+
+    fun save() {
+        val content = editor?.text?.toString() ?: return
+        try {
+            file.writeText(content, Charsets.UTF_8)
+            isModified = false
+            Toast.makeText(context, "已保存", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Toast.makeText(context, "保存失败: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text("删除文件") },
+            text = { Text("确定删除「${file.name}」？此操作不可撤销。") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeleteConfirm = false
+                    file.delete()
+                    Toast.makeText(context, "已删除: ${file.name}", Toast.LENGTH_SHORT).show()
+                    onDeleted()
+                }) {
+                    Text("删除", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) {
+                    Text("取消")
+                }
+            }
+        )
+    }
+
+    val textmateReady = remember {
+        try {
+            val appCtx = context.applicationContext
+            FileProviderRegistry.getInstance().addFileProvider(AssetsFileResolver(appCtx.assets))
+            val themeReg = ThemeRegistry.getInstance()
+            themeReg.loadTheme(
+                ThemeModel(
+                    IThemeSource.fromInputStream(
+                        FileProviderRegistry.getInstance().tryGetInputStream("textmate/themes/light.json"),
+                        "light.json", null
+                    ), "Light"
+                )
+            )
+            themeReg.setTheme("Light")
+            GrammarRegistry.getInstance().loadGrammars("textmate/languages.json")
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Column {
+                        Text(file.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        val sizeStr = formatSize(file.length())
+                        val dateStr = dateFormat.format(Date(file.lastModified()))
+                        val flag = if (isModified) " · 未保存" else ""
+                        Text("$sizeStr · $dateStr$flag",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (isModified) MaterialTheme.colorScheme.error
+                                    else MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                    }
+                },
+                actions = {
+                    if (isEditing) {
+                        IconButton(onClick = { save() }) {
+                            Icon(Icons.Default.Check, contentDescription = "保存",
+                                tint = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                    IconButton(onClick = {
+                        isEditing = !isEditing
+                        editor?.editable = isEditing
+                    }) {
+                        Icon(
+                            if (isEditing) Icons.Default.Visibility else Icons.Default.Edit,
+                            contentDescription = if (isEditing) "预览" else "编辑",
+                            tint = if (isEditing) MaterialTheme.colorScheme.primary
+                                   else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    IconButton(onClick = { showDeleteConfirm = true }) {
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = "删除",
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground
+                )
+            )
+        }
+    ) { innerPadding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.1f))
+        ) {
+            AndroidView(
+                factory = { ctx ->
+                    CodeEditor(ctx).apply {
+                        editable = isEditing
+                        typefaceText = Typeface.MONOSPACE
+                        setText(initialContent)
+                        setTextSize(12f)
+                        tabWidth = 4
+                        isLineNumberEnabled = true
+                        isWordwrap = false
+                        isHighlightCurrentLine = false
+                        nonPrintablePaintingFlags = 0
+                        getComponent(Magnifier::class.java).setEnabled(false)
+
+                        if (textmateReady) {
+                            colorScheme = TextMateColorScheme.create(ThemeRegistry.getInstance())
+                            setEditorLanguage(TextMateLanguage.create("source.yaml", false))
+                        }
+
+                        subscribeEvent(ContentChangeEvent::class.java) { _, _ ->
+                            textLength = text.toString().length
+                            isModified = text.toString() != initialContent
+                        }
+
+                        editor = this
+                    }
+                },
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+    }
+}
+
 private val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
 
 @Composable
-private fun FileEntryRow(entry: FileEntry, onClick: () -> Unit) {
+private fun FileEntryRow(entry: FileEntry, onView: () -> Unit, onDelete: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .clickable(onClick = onView)
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -232,14 +425,14 @@ private fun FileEntryRow(entry: FileEntry, onClick: () -> Unit) {
             }
         }
         if (!entry.isDirectory) {
-            Icon(
-                Icons.Default.Delete,
-                contentDescription = "删除",
-                tint = MaterialTheme.colorScheme.error.copy(alpha = 0.6f),
-                modifier = Modifier
-                    .size(20.dp)
-                    .clickable { onClick() }
-            )
+            IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
+                Icon(
+                    Icons.Default.Delete,
+                    contentDescription = "删除",
+                    tint = MaterialTheme.colorScheme.error.copy(alpha = 0.6f),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
         }
     }
 }
