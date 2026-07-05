@@ -32,6 +32,10 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.twotone.CloudDownload
+import androidx.compose.material.icons.twotone.Computer
+import androidx.compose.material.icons.twotone.DriveFolderUpload
+import androidx.compose.material.icons.twotone.Storefront
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -322,7 +326,7 @@ fun SchemaSettingsContent(
                                     onNavigateToMarket()
                                 },
                                 leadingIcon = {
-                                    Icon(Icons.Default.Storefront, null,
+                                    Icon(Icons.TwoTone.Storefront, null,
                                         tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(20.dp))
                                 }
@@ -338,7 +342,7 @@ fun SchemaSettingsContent(
                                     requireImportWarning { showWirelessSheet = true }
                                 },
                                 leadingIcon = {
-                                    Icon(Icons.Default.Computer, null,
+                                    Icon(Icons.TwoTone.Computer, null,
                                         tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(20.dp))
                                 }
@@ -350,7 +354,7 @@ fun SchemaSettingsContent(
                                     requireImportWarning { showUrlDialog = true }
                                 },
                                 leadingIcon = {
-                                    Icon(Icons.Default.CloudDownload, null,
+                                    Icon(Icons.TwoTone.CloudDownload, null,
                                         tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(20.dp))
                                 }
@@ -362,7 +366,7 @@ fun SchemaSettingsContent(
                                     requireImportWarning { importLauncher.launch(arrayOf("*/*")) }
                                 },
                                 leadingIcon = {
-                                    Icon(Icons.Default.FolderOpen, null,
+                                    Icon(Icons.TwoTone.DriveFolderUpload, null,
                                         tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(20.dp))
                                 }

@@ -1995,18 +1995,25 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                     }
                 }
                 else -> {
-                    val layoutState = keyboardViewModel.keyboardState.value
-                    if (key.length == 1 && (layoutState is com.kingzcheung.xime.ui.keyboard.KeyboardLayoutState.Number || layoutState is com.kingzcheung.xime.ui.keyboard.KeyboardLayoutState.CommonSymbol)) {
-                        withContext(Dispatchers.Main) {
-                            commitText(key)
-                        }
+                    val isNumberKeyboard = keyboardViewModel.keyboardState.value is com.kingzcheung.xime.ui.keyboard.KeyboardLayoutState.Number
+                    val isCommonSymbolKeyboard = keyboardViewModel.keyboardState.value is com.kingzcheung.xime.ui.keyboard.KeyboardLayoutState.CommonSymbol
+
+                    val routeResult = com.kingzcheung.xime.calculator.routeCalculatorKey(
+                        key = key,
+                        isNumberKeyboard = isNumberKeyboard,
+                        isCommonSymbolKeyboard = isCommonSymbolKeyboard,
+                        calculatorEngine = calculatorEngine,
+                    )
+                    if (routeResult is com.kingzcheung.xime.calculator.CalculatorRouteResult.Handled) {
+                        withContext(Dispatchers.Main) { commitText(routeResult.commitText) }
+                        if (isNumberKeyboard) updateCalculatorCandidates()
                         needsUIUpdate = true
-                        Log.d(TAG, "Number/Symbol keyboard: committed '$key' directly")
                         return@launch
                     }
+
                     val pendingEnglish = candState.pendingEnglishText
                     
-                    // 非计算器键（如符号键盘的符号、全键盘的字母）清除计算器状态
+                    // 非计算器键清除计算器状态
                     if (!key.matches(Regex("[0-9]")) && key !in listOf("+", "-", "*", "/", ".")) {
                         if (calculatorEngine.isActive() || calculatorEngine.getCandidate() != null) {
                             calculatorEngine.clear()
