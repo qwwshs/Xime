@@ -69,13 +69,22 @@ use_preset_vocabulary: false
         val schemaFiles = rimeDir.listFiles { f -> f.name.endsWith(".schema.yaml") && !f.name.startsWith("user_simp_") } ?: return
         for (sf in schemaFiles) {
             val schemaId = sf.name.removeSuffix(".schema.yaml")
-            if (hasSpellerAlgebra(sf))
+            if (hasReverseLookupTranslator(sf)) {
+                // 使用 reverse_lookup_translator 的方案（如 wubi86_pinyin），
+                // table_translator 的字典不能替换为合并词典，否则输入无候选词
+            } else if (hasSpellerAlgebra(sf)) {
                 applyPackConfig(rimeDir, schemaId)
-            else
+            } else {
                 applyMergedDictConfig(rimeDir, schemaId)
+            }
             // 所有方案都添加自定义短语翻译器
             applyCustomPhraseTranslator(rimeDir, schemaId)
         }
+    }
+
+    internal fun hasReverseLookupTranslator(schemaFile: java.io.File): Boolean {
+        val text = schemaFile.readText(Charsets.UTF_8)
+        return text.contains("reverse_lookup_translator")
     }
 
     // 为方案添加 custom_phrase 翻译器（独立于主词典音节表）

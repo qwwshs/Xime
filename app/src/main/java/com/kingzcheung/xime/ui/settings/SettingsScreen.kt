@@ -52,7 +52,8 @@ fun SettingsScreen(
                     }
                     onWizardBack()
                 },
-                onNavigateToMarket = { navController.navigate(SettingsRoutes.SchemaMarket) }
+                onNavigateToMarket = { navController.navigate(SettingsRoutes.SchemaMarket) },
+                onNavigateToRimeFileBrowser = { navController.navigate(SettingsRoutes.RimeFileBrowser) }
             )
         }
         composable(SettingsRoutes.SchemaMarket) {
@@ -137,6 +138,11 @@ fun SettingsScreen(
         }
         composable(SettingsRoutes.CustomPhrase) {
             CustomPhraseContent(
+                onBack = { navController.popBackStack() }
+            )
+        }
+        composable(SettingsRoutes.RimeFileBrowser) {
+            RimeFileBrowserContent(
                 onBack = { navController.popBackStack() }
             )
         }

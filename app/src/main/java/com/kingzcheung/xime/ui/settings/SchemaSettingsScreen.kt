@@ -81,7 +81,8 @@ import com.kingzcheung.xime.viewmodel.SchemaSettingsViewModel
 @Composable
 fun SchemaSettingsContent(
     onBack: () -> Unit,
-    onNavigateToMarket: () -> Unit = {}
+    onNavigateToMarket: () -> Unit = {},
+    onNavigateToRimeFileBrowser: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val viewModel: SchemaSettingsViewModel = viewModel()
@@ -359,6 +360,22 @@ fun SchemaSettingsContent(
                                 onClick = {
                                     showMenu = false
                                     requireImportWarning { importLauncher.launch(arrayOf("*/*")) }
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Default.FolderOpen, null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp))
+                                }
+                            )
+                            HorizontalDivider(
+                                modifier = Modifier.padding(horizontal = 12.dp),
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                            )
+                            DropdownMenuItem(
+                                text = { Text("文件管理器") },
+                                onClick = {
+                                    showMenu = false
+                                    onNavigateToRimeFileBrowser()
                                 },
                                 leadingIcon = {
                                     Icon(Icons.Default.FolderOpen, null,
