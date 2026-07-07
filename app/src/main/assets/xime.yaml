@@ -125,19 +125,19 @@ keyboard:
   # candidate_text_color     - 候选文字颜色（亮色）
   # candidate_text_color_dark- 候选文字颜色（暗色）
   colors:
-    keyboard_bg_color: 0xE3E4E8
-    keyboard_bg_color_dark: 0x202020
-    key_bg_color: 0xFFFFFF
-    key_bg_color_dark: 0x4A4A4A
+    keyboard_bg_color_dark: 0x1D2125
+    key_bg_color_dark: 0x383D47
     # special_key_bg_color: 0x9fef86 #不设置时默认取主题色
     # special_key_bg_color_dark: 0x4A4A4A #不设置时默认取主题色
-    candidate_bar_bg_color: 0xE3E4E8
-    candidate_bar_bg_color_dark: 0x202020
-    key_text_color: 0x202124
-    key_text_color_dark: 0xE8EAED
-    candidate_text_color: 0x202124
-    candidate_text_color_dark: 0xE8EAED
-  
+    candidate_bar_bg_color_dark: 0x1D2125
+    key_text_color_dark: 0xE4E4E9
+    candidate_text_color_dark: 0xE4E4E9
+    keyboard_bg_color: 0xEFEFF4
+    key_bg_color: 0xFAFBFF
+    candidate_bar_bg_color: 0xEFEFF4
+    key_text_color: 0x1976D2
+    candidate_text_color: 0x1976D2
+
   # ── 按键阴影配置（可选，不设置则使用默认值）──
   # enabled:            是否启用阴影（true/false）
   # elevation:          阴影高度（dp，默认 1）
