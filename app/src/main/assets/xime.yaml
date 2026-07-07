@@ -52,6 +52,43 @@ color_schemes:
     name: "青碧如水"
     primary_color: 0x00796B
 
+  steam_gray:
+    name: "steam"
+    primary_color: 0x1A9FFF
+
+  qwwshs_gray:
+    name: "qwwshs"
+    primary_color: 0x9F6F4C
+
+  monet_light:
+    name: "Monet 亮色"
+    primary_color: 0x4C5C92
+    keyboard_bg_color: 0xEFEFF4
+    key_bg_color: 0xFAFBFF
+    special_key_bg_color: 0xDEE1E6
+    candidate_bar_bg_color: 0xEFEFF4
+    key_text_color: 0x1976D2
+    candidate_text_color: 0x1976D2
+
+  monet_dark:
+    name: "Monet 暗色"
+    primary_color: 0xB5C4FF
+    keyboard_bg_color: 0x1D2125
+    key_bg_color: 0x383D47
+    special_key_bg_color: 0x414756
+    candidate_bar_bg_color: 0x1D2125
+    key_text_color: 0xE4E4E9
+    candidate_text_color: 0xE4E4E9
+
+  un:
+    name: "自定义暗色"
+    primary_color: 0x60779E
+    keyboard_bg_color: 0x000000
+    key_bg_color: 0x4F5B73
+    special_key_bg_color: 0x394153
+    candidate_bar_bg_color: 0x000000
+    key_text_color: 0x000000
+    candidate_text_color: 0xFFFFFF
 # ── 26 键全键盘手势配置 ──
 # 每个按键可定义 4 个手势：
 #   tap:        点按
@@ -108,7 +145,7 @@ keyboard:
   shadow:
     enabled: true
     elevation: 1
-    shape_radius: 8
+    shape_radius: 4
   qwerty:
     # ── 按键布局模式 ──
     # standard: 默认布局（主文字居中，下滑提示在底部）
